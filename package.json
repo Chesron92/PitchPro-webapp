@@ -1,0 +1,59 @@
+{
+  "name": "pitchpro",
+  "version": "1.0.0",
+  "description": "Een recruitment platform dat kandidaten en recruiters verbindt",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "keywords": [
+    "recruitment",
+    "job",
+    "hiring",
+    "vacancy"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@headlessui/react": "^1.7.0",
+    "@mui/icons-material": "^7.0.1",
+    "@mui/material": "^7.0.1",
+    "autoprefixer": "^10.4.14",
+    "firebase": "^10.7.0",
+    "postcss": "^8.4.26",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.45.1",
+    "react-router-dom": "^6.14.1",
+    "tailwindcss": "^3.3.3",
+    "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "@headlessui/react": "^1.7.0",
+    "@types/material-ui": "^0.21.18",
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.2",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.26",
+    "react-scripts": "5.0.1",
+    "tailwindcss": "^3.3.3"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
