@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0ea5e9" />
+    <meta
+      name="description"
+      content="PitchPro - Het platform voor werkzoekenden en recruiters"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>PitchPro</title>
+    <!-- Voeg een opvallende opmerking toe voor debugging -->
+    <!-- DEBUG: React app zou moeten renderen in het root element -->
+    <style>
+      /* Noodstijlen als CSS niet laadt */
+      #root-error {
+        display: none;
+        font-family: Arial, sans-serif;
+        color: #d00;
+        padding: 20px;
+        text-align: center;
+      }
+    </style>
+    <!-- Error handler script om problemen te detecteren -->
+    <script src="%PUBLIC_URL%/error-handler.js"></script>
+  </head>
+  <body>
+    <noscript>Je moet JavaScript inschakelen om deze app te gebruiken.</noscript>
+    <div id="root"></div>
+    <div id="root-error">
+      Als je deze tekst ziet en niet de app, is er een probleem met het renderen.
+      Controleer de JavaScript console voor fouten.
+    </div>
+    
+    <script>
+      // Eenvoudige timeout om te controleren of de app laadt
+      setTimeout(function() {
+        if (document.getElementById('root').children.length === 0) {
+          document.getElementById('root-error').style.display = 'block';
+        }
+      }, 3000);
+    </script>
+  </body>
+</html> 
