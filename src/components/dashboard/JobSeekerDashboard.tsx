@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { JobSeeker, BaseUser } from '../../types/user';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { useNavigate } from 'react-router-dom';
+import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase/config';
 
 interface JobSeekerDashboardProps {
   user: BaseUser;
+}
+
+// Interface voor sollicitaties
+interface Application {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  companyName: string;
+  status: 'pending' | 'reviewing' | 'interview' | 'rejected' | 'accepted';
+  applicationDate: Timestamp;
 }
 
 const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { favorites, loading: favoritesLoading, removeFavorite } = useFavorites();
   const navigate = useNavigate();
+  // State voor sollicitaties
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState<boolean>(true);
 
   const handleRemoveFavorite = async (jobId: string) => {
     try {
@@ -22,6 +37,11 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
 
   const goToJobDetail = (jobId: string) => {
     navigate(`/job/${jobId}`);
+  };
+  
+  // Navigeer naar sollicitatie detail pagina
+  const viewApplicationDetail = (applicationId: string) => {
+    navigate(`/applications/${applicationId}`);
   };
 
   // Bereken hoeveel % van het profiel is ingevuld
@@ -77,6 +97,80 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
     return 'bg-green-500';
   };
   
+  const handleAddAppointment = () => {
+    // Voor werkzoekenden, toon een melding dat deze functie nog niet beschikbaar is
+    alert('Deze functie is momenteel alleen beschikbaar voor recruiters. Als werkzoekende kun je alleen afspraken ontvangen van recruiters.');
+  };
+
+  // Haal sollicitaties op
+  useEffect(() => {
+    const fetchApplications = async () => {
+      if (!user.id) return;
+      
+      try {
+        setApplicationsLoading(true);
+        const q = query(
+          collection(db, 'sollicitaties'),
+          where('userId', '==', user.id),
+          orderBy('applicationDate', 'desc')
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const applicationsData: Application[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          applicationsData.push({
+            id: doc.id,
+            jobId: data.jobId,
+            jobTitle: data.jobTitle || 'Onbekende functie',
+            companyName: data.companyName || 'Onbekend bedrijf',
+            status: data.status || 'pending',
+            applicationDate: data.applicationDate
+          });
+        });
+        
+        setApplications(applicationsData);
+      } catch (error) {
+        console.error('Fout bij ophalen sollicitaties:', error);
+      } finally {
+        setApplicationsLoading(false);
+      }
+    };
+    
+    fetchApplications();
+  }, [user.id]);
+  
+  // Helper functie om datum te formatteren
+  const formatDate = (timestamp: Timestamp): string => {
+    if (!timestamp) return 'Onbekende datum';
+    
+    const date = timestamp.toDate();
+    return date.toLocaleDateString('nl-NL', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+  
+  // Helper functie om status kleurcodering te krijgen
+  const getStatusStyle = (status: string): { color: string, bg: string, text: string } => {
+    switch (status) {
+      case 'pending':
+        return { color: 'blue', bg: 'blue-100', text: 'Nieuw' };
+      case 'reviewing':
+        return { color: 'yellow', bg: 'yellow-100', text: 'In behandeling' };
+      case 'interview':
+        return { color: 'green', bg: 'green-100', text: 'Gesprek ingepland' };
+      case 'rejected':
+        return { color: 'red', bg: 'red-100', text: 'Afgewezen' };
+      case 'accepted':
+        return { color: 'emerald', bg: 'emerald-100', text: 'Aangenomen' };
+      default:
+        return { color: 'gray', bg: 'gray-100', text: 'Onbekend' };
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -111,43 +205,45 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
             <h3 className="font-semibold text-lg mb-4">Verstuurde sollicitaties</h3>
             
             <div className="space-y-3">
-              <div className="hidden">
-                {/* Hier komen sollicitaties wanneer beschikbaar */}
-                <div className="space-y-3">
-                  <div className="border-l-4 border-blue-500 pl-3 py-2">
-                    <p className="font-medium">Front-end Developer bij TechCorp</p>
-                    <div className="flex justify-between">
-                      <p className="text-sm text-gray-600">Ingediend op 15 april 2023</p>
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">In behandeling</span>
-                    </div>
-                  </div>
-                  
-                  <div className="border-l-4 border-green-500 pl-3 py-2">
-                    <p className="font-medium">UX Designer bij DesignStudio</p>
-                    <div className="flex justify-between">
-                      <p className="text-sm text-gray-600">Ingediend op 10 april 2023</p>
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Gesprek ingepland</span>
-                    </div>
-                  </div>
-                  
-                  <div className="border-l-4 border-red-500 pl-3 py-2">
-                    <p className="font-medium">Data Analyst bij DataCorp</p>
-                    <div className="flex justify-between">
-                      <p className="text-sm text-gray-600">Ingediend op 5 april 2023</p>
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Afgewezen</span>
-                    </div>
-                  </div>
+              {applicationsLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
                 </div>
-              </div>
-              
-              <p className="text-gray-500 text-sm italic">Je hebt nog geen sollicitaties verstuurd.</p>
-              
-              <a 
-                href="/jobs" 
-                className="block text-primary-600 hover:text-primary-800 font-medium"
-              >
-                Zoek vacatures om te solliciteren
-              </a>
+              ) : applications.length > 0 ? (
+                <div className="space-y-3">
+                  {applications.map((application) => {
+                    const statusStyle = getStatusStyle(application.status);
+                    return (
+                      <div 
+                        key={application.id} 
+                        className={`border-l-4 border-${statusStyle.color}-500 pl-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors duration-200`}
+                        onClick={() => viewApplicationDetail(application.id)}
+                      >
+                        <p className="font-medium">{application.jobTitle} bij {application.companyName}</p>
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm text-gray-600">
+                            Ingediend op {formatDate(application.applicationDate)}
+                          </p>
+                          <span className={`text-xs font-medium bg-${statusStyle.bg} text-${statusStyle.color}-800 px-2 py-1 rounded-full`}>
+                            {statusStyle.text}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-500 text-sm italic">Je hebt nog geen sollicitaties verstuurd.</p>
+                  
+                  <a 
+                    href="/jobs" 
+                    className="block text-primary-600 hover:text-primary-800 font-medium"
+                  >
+                    Zoek vacatures om te solliciteren
+                  </a>
+                </>
+              )}
             </div>
           </div>
           
@@ -210,7 +306,10 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
           <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Mijn Agenda</h3>
-              <button className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md">
+              <button 
+                onClick={handleAddAppointment}
+                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md"
+              >
                 + Afspraak toevoegen
               </button>
             </div>

@@ -3,6 +3,7 @@ import { BaseUser } from '../../types/user';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Job {
   id: string;
@@ -13,6 +14,29 @@ interface Job {
   status?: string;
 }
 
+interface Meeting {
+  id: string;
+  title: string;
+  candidateName: string;
+  dateTime: Timestamp;
+  endDateTime: Timestamp;
+  locationType: 'online' | 'locatie';
+  location?: string;
+  meetingLink?: string;
+  status: string;
+}
+
+interface Application {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  userId: string;
+  applicantName: string;
+  status: 'pending' | 'reviewing' | 'interview' | 'rejected' | 'accepted';
+  applicationDate: Timestamp;
+  location?: string;
+}
+
 interface RecruiterDashboardProps {
   user: BaseUser;
 }
@@ -20,8 +44,16 @@ interface RecruiterDashboardProps {
 const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [meetingsLoading, setMeetingsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [meetingsError, setMeetingsError] = useState<string | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>('');
+  const { userProfile, currentUser } = useAuth();
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState<boolean>(true);
+  const [applicationsError, setApplicationsError] = useState<string | null>(null);
 
   // Bereken completeness van het profiel
   const calculateProfileCompletion = (): number => {
@@ -94,6 +126,62 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   const handleViewJob = (jobId: string) => {
     navigate(`/job/${jobId}`);
   };
+  
+  const handleAddAppointment = () => {
+    navigate('/schedule-meeting');
+  };
+  
+  // Haal de geplande meetings op voor deze recruiter
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      if (!currentUser) return;
+      
+      try {
+        setMeetingsLoading(true);
+        setMeetingsError(null);
+        
+        const now = Timestamp.now();
+        const meetingsRef = collection(db, 'meetings');
+        
+        // Haal meetings op waar de recruiterId overeenkomt met de huidige gebruiker
+        // en de meeting in de toekomst plaatsvindt
+        const q = query(
+          meetingsRef,
+          where('recruiterId', '==', currentUser.uid),
+          where('dateTime', '>=', now),
+          orderBy('dateTime', 'asc'),
+          limit(5) // Toon alleen de eerst komende 5 meetings
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const fetchedMeetings: Meeting[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedMeetings.push({
+            id: doc.id,
+            title: data.title || 'Ongetitelde afspraak',
+            candidateName: data.candidateName || 'Onbekende kandidaat',
+            dateTime: data.dateTime,
+            endDateTime: data.endDateTime,
+            locationType: data.locationType,
+            location: data.location,
+            meetingLink: data.meetingLink,
+            status: data.status || 'gepland'
+          });
+        });
+        
+        setMeetings(fetchedMeetings);
+      } catch (err) {
+        console.error('Fout bij ophalen van meetings:', err);
+        setMeetingsError('Er is een fout opgetreden bij het ophalen van je afspraken');
+      } finally {
+        setMeetingsLoading(false);
+      }
+    };
+    
+    fetchMeetings();
+  }, [currentUser]);
   
   // Haal vacatures op die gemaakt zijn door deze recruiter
   useEffect(() => {
@@ -192,6 +280,125 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
     fetchJobs();
   }, [user]);
   
+  // Haal sollicitaties op
+  useEffect(() => {
+    const fetchApplications = async () => {
+      if (!user.id) return;
+      
+      try {
+        setApplicationsLoading(true);
+        setApplicationsError(null);
+        
+        const q = query(
+          collection(db, 'sollicitaties'),
+          where('recruiterId', '==', user.id),
+          orderBy('applicationDate', 'desc')
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const applicationsData: Application[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          applicationsData.push({
+            id: doc.id,
+            jobId: data.jobId,
+            jobTitle: data.jobTitle || 'Onbekende functie',
+            userId: data.userId,
+            applicantName: data.applicantName || 'Onbekende kandidaat',
+            status: data.status || 'pending',
+            applicationDate: data.applicationDate,
+            location: data.location
+          });
+        });
+        
+        setApplications(applicationsData);
+      } catch (error) {
+        console.error('Fout bij ophalen sollicitaties:', error);
+        setApplicationsError('Er is een fout opgetreden bij het laden van sollicitaties');
+      } finally {
+        setApplicationsLoading(false);
+      }
+    };
+    
+    fetchApplications();
+  }, [user.id]);
+  
+  // Helper functie om datum te formatteren
+  const formatApplicationDate = (timestamp: Timestamp): string => {
+    if (!timestamp) return 'Onbekende datum';
+    
+    const date = timestamp.toDate();
+    return date.toLocaleDateString('nl-NL', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  };
+  
+  // Helper functie om status badge te krijgen
+  const getStatusBadge = (status: string): { color: string, bg: string, text: string } => {
+    switch (status) {
+      case 'pending':
+        return { color: 'blue', bg: 'blue-100', text: 'Nieuw' };
+      case 'reviewing':
+        return { color: 'yellow', bg: 'yellow-100', text: 'In behandeling' };
+      case 'interview':
+        return { color: 'green', bg: 'green-100', text: 'Gesprek ingepland' };
+      case 'rejected':
+        return { color: 'red', bg: 'red-100', text: 'Afgewezen' };
+      case 'accepted':
+        return { color: 'emerald', bg: 'emerald-100', text: 'Aangenomen' };
+      default:
+        return { color: 'gray', bg: 'gray-100', text: 'Onbekend' };
+    }
+  };
+  
+  // Navigeer naar sollicitatie detail pagina
+  const handleViewApplication = (applicationId: string) => {
+    navigate(`/applications/${applicationId}`);
+  };
+  
+  // Helper functie om meeting datum/tijd te formatteren
+  const formatMeetingDateTime = (dateTime: Timestamp, endDateTime: Timestamp): string => {
+    const startDate = dateTime.toDate();
+    const endDate = endDateTime.toDate();
+    
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Check of het vandaag of morgen is
+    let dayPrefix = '';
+    if (startDate.toDateString() === today.toDateString()) {
+      dayPrefix = 'Vandaag';
+    } else if (startDate.toDateString() === tomorrow.toDateString()) {
+      dayPrefix = 'Morgen';
+    } else {
+      // Anders gebruik datum in nl-NL formaat
+      dayPrefix = startDate.toLocaleDateString('nl-NL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long'
+      });
+    }
+    
+    // Formatteer tijd
+    const startTime = startDate.toLocaleTimeString('nl-NL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const endTime = endDate.toLocaleTimeString('nl-NL', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    return `${dayPrefix}, ${startTime} - ${endTime}`;
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -338,47 +545,47 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
             <h3 className="font-semibold text-lg mb-4">Ontvangen sollicitaties</h3>
             
             <div className="space-y-3">
-              <p className="text-gray-500 text-sm italic">
-                Je hebt nog geen sollicitaties ontvangen.
-              </p>
-              
-              <div className="hidden">
-                {/* Dit blok wordt zichtbaar wanneer er sollicitaties zijn */}
-                <div className="space-y-3">
-                  <div className="border-l-4 border-blue-500 pl-3 py-2">
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-medium">Laura Jansen</p>
-                        <p className="text-sm text-gray-600">Frontend Developer • Amsterdam</p>
-                      </div>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center h-fit">
-                        Nieuw
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Sollicitatie ontvangen op 18 april 2023</p>
-                  </div>
-                  
-                  <div className="border-l-4 border-yellow-500 pl-3 py-2">
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-medium">Mark de Boer</p>
-                        <p className="text-sm text-gray-600">UX Designer • Utrecht</p>
-                      </div>
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded flex items-center h-fit">
-                        In behandeling
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Sollicitatie ontvangen op 15 april 2023</p>
-                  </div>
+              {applicationsLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500 text-sm">Sollicitaties laden...</p>
                 </div>
-              </div>
-              
-              <a 
-                href="#" 
-                className="block text-primary-600 hover:text-primary-800 font-medium"
-              >
-                Plaats een vacature om sollicitaties te ontvangen
-              </a>
+              ) : applicationsError ? (
+                <div className="text-red-500 text-sm py-2">{applicationsError}</div>
+              ) : applications.length > 0 ? (
+                <div className="space-y-3">
+                  {applications.map((application) => {
+                    const statusBadge = getStatusBadge(application.status);
+                    return (
+                      <div key={application.id} className={`border-l-4 border-${statusBadge.color}-500 pl-3 py-2 hover:bg-gray-50 cursor-pointer`} onClick={() => handleViewApplication(application.id)}>
+                        <div className="flex justify-between">
+                          <div>
+                            <p className="font-medium">{application.applicantName}</p>
+                            <p className="text-sm text-gray-600">{application.jobTitle} {application.location ? `• ${application.location}` : ''}</p>
+                          </div>
+                          <span className={`text-xs bg-${statusBadge.bg} text-${statusBadge.color}-800 px-2 py-1 rounded flex items-center h-fit`}>
+                            {statusBadge.text}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Sollicitatie ontvangen op {formatApplicationDate(application.applicationDate)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-500 text-sm italic">
+                    Je hebt nog geen sollicitaties ontvangen.
+                  </p>
+                  
+                  <a 
+                    href="/create-job" 
+                    className="block text-primary-600 hover:text-primary-800 font-medium"
+                  >
+                    Plaats een vacature om sollicitaties te ontvangen
+                  </a>
+                </>
+              )}
             </div>
           </div>
           
@@ -393,7 +600,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
               </div>
               
               <div className="bg-green-50 p-4 rounded-lg text-center">
-                <p className="text-2xl font-bold text-green-700">0</p>
+                <p className="text-2xl font-bold text-green-700">{applications.length}</p>
                 <p className="text-sm text-green-800">Sollicitaties ontvangen</p>
               </div>
               
@@ -460,34 +667,50 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
           <div className="bg-white border rounded-lg shadow-sm p-5">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Agenda</h3>
-              <button className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md">
+              <button 
+                onClick={handleAddAppointment}
+                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md"
+              >
                 + Afspraak toevoegen
               </button>
             </div>
             
             <div className="space-y-3">
-              <p className="text-gray-500 text-sm italic">Je hebt geen geplande afspraken voor de komende dagen.</p>
-              
-              <div className="hidden">
-                {/* Dit blok wordt zichtbaar wanneer er afspraken zijn */}
-                <div className="border-l-4 border-primary-500 pl-3 py-2">
-                  <div className="flex items-center">
-                    <div className="mr-3 text-primary-700">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="font-medium">Interview met Laura Bakker</p>
-                      <p className="text-sm text-gray-600">Vandaag, 14:00 - 15:00</p>
-                    </div>
-                  </div>
+              {meetingsLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500 text-sm">Agenda laden...</p>
                 </div>
-              </div>
+              ) : meetingsError ? (
+                <div className="text-red-500 text-sm py-2">{meetingsError}</div>
+              ) : meetings.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">Je hebt geen geplande afspraken voor de komende dagen.</p>
+              ) : (
+                <div className="space-y-3">
+                  {meetings.map((meeting) => (
+                    <div key={meeting.id} className="border-l-4 border-primary-500 pl-3 py-2">
+                      <div className="flex items-center">
+                        <div className="mr-3 text-primary-700">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="font-medium">{meeting.title}</p>
+                          <p className="text-sm text-gray-600">
+                            {formatMeetingDateTime(meeting.dateTime, meeting.endDateTime)}
+                          </p>
+                          <p className="text-xs text-gray-500">Met {meeting.candidateName}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               
               <div className="flex justify-center mt-4">
                 <a 
-                  href="#" 
+                  href="/agenda" 
                   className="inline-block text-primary-600 hover:text-primary-800 font-medium"
                 >
                   Beheer je agenda

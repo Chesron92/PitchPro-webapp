@@ -303,6 +303,18 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       
       console.log("Profiel succesvol bijgewerkt");
       setLoading(false);
+      
+      // Belangrijk: NIET het formulier resetten na succesvolle verzending
+      // We behouden de ingevoerde gegevens, zodat de gebruiker ze niet opnieuw hoeft in te voeren
+      
+      // Direct de waarden opnieuw instellen om te voorkomen dat ze verdwijnen
+      setValue('street', data.street || '');
+      setValue('houseNumber', data.houseNumber || '');
+      setValue('postalCode', data.postalCode || '');
+      setValue('city', data.city || '');
+      setValue('country', data.country || '');
+      setValue('phoneNumber', data.phoneNumber || '');
+      
       onSuccess();
     } catch (error) {
       console.error("Fout bij het bijwerken van profiel:", error);

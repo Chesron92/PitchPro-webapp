@@ -11,7 +11,6 @@ const ProfilePage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [isDebugging, setIsDebugging] = useState(false);
   const navigate = useNavigate();
   
   // Als het nog aan het laden is, toon een laadscherm
@@ -104,15 +103,19 @@ const ProfilePage: React.FC = () => {
         <RecruiterProfileForm 
           user={userProfile}
           onSuccess={() => {
-            // Ververs het profiel na succesvolle opslag
-            refreshUserProfile()
-              .then(() => {
-                setSuccess(true);
-                setTimeout(() => setSuccess(false), 3000);
-              })
-              .catch(err => {
-                console.error("Fout bij verversen profiel na opslaan:", err);
-              });
+            // Ververs het profiel na succesvolle opslag, maar met vertraging
+            // Dit zorgt ervoor dat de gegevens eerst in het formulier worden bewaard
+            setSuccess(true);
+            setTimeout(() => {
+              refreshUserProfile()
+                .then(() => {
+                  console.log("Profiel succesvol ververst na vertraging");
+                  setTimeout(() => setSuccess(false), 3000);
+                })
+                .catch(err => {
+                  console.error("Fout bij verversen profiel na opslaan:", err);
+                });
+            }, 500); // Wacht 500ms voordat het profiel wordt ververst
           }}
           onError={(msg: string) => setError(msg)}
           setLoading={setFormLoading}
@@ -172,48 +175,11 @@ const ProfilePage: React.FC = () => {
         </div>
       )}
       
-      {/* Debug informatie */}
-      <div className="mb-6">
-        <button
-          onClick={() => setIsDebugging(!isDebugging)}
-          className="text-sm text-gray-500 underline"
-        >
-          {isDebugging ? 'Verberg debug info' : 'Toon debug info'}
-        </button>
-        
-        {isDebugging && (
-          <div className="mt-2 p-4 bg-gray-100 rounded text-xs font-mono overflow-auto">
-            <h3 className="font-bold mb-2">Profielgegevens:</h3>
-            <pre className="whitespace-pre-wrap break-all">
-              {JSON.stringify(userProfile, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
-      
       <div className="bg-white rounded-lg shadow-md p-6">
         {renderProfileForm()}
         
         <div className="mt-8 pt-6 border-t">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <button
-                onClick={handleRefreshProfile}
-                disabled={formLoading}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50"
-              >
-                {formLoading ? 'Bezig...' : 'Profiel verversen'}
-              </button>
-              
-              <button
-                onClick={repairJobSeekerProfile}
-                disabled={formLoading}
-                className="px-4 py-2 text-orange-600 border border-orange-300 rounded hover:bg-orange-100 disabled:opacity-50"
-              >
-                {formLoading ? 'Bezig...' : 'Repareer als werkzoekende'}
-              </button>
-            </div>
-            
+          <div className="flex justify-end items-center">
             <button
               onClick={() => navigate('/dashboard')}
               className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"

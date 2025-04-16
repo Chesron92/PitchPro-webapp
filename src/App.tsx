@@ -26,6 +26,8 @@ import CVPreview from './pages/CVPreview';
 import CreateJob from './pages/CreateJob';
 import EditJob from './pages/EditJob';
 import ScheduleMeeting from './pages/ScheduleMeeting';
+import Calendar from './pages/Calendar';
+import ApplicationDetail from './pages/ApplicationDetail';
 
 // Dashboard componenten
 import JobSeekerDashboard from './components/dashboard/JobSeekerDashboard';
@@ -275,7 +277,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <MessageProvider>
         <FavoritesProvider>
-          <Router>
+          <Router basename="/">
             <Routes>
               {/* Openbare routes */}
               <Route path="/" element={<Landing />} />
@@ -302,6 +304,7 @@ const App: React.FC = () => {
               <Route element={<ProtectedRoute requiredRole="recruiter" />}>
                 <Route path="/candidates" element={<Candidates />} />
                 <Route path="/candidate/:id" element={<CandidateProfile />} />
+                <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
                 <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
               </Route>
               
@@ -328,12 +331,22 @@ const App: React.FC = () => {
                   
                   {/* CV Preview pagina */}
                   <Route path="/cv-preview" element={<CVPreview />} />
+                  
+                  {/* Sollicitatie detail pagina */}
+                  <Route path="/applications/:applicationId" element={<ApplicationDetail />} />
 
                   {/* Vacature maken/bewerken pagina - alleen voor recruiters */}
                   <Route element={<ProtectedRoute requiredRole="recruiter" />}>
                     <Route path="/create-job" element={<CreateJob />} />
                     <Route path="/edit-job/:jobId" element={<EditJob />} />
                   </Route>
+
+                  {/* Agenda pagina */}
+                  <Route path="/agenda" element={<Calendar />} />
+
+                  {/* Schedule Meeting pagina */}
+                  <Route path="/schedule-meeting/:candidateId" element={<ScheduleMeeting />} />
+                  <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
                 </Route>
               </Route>
               

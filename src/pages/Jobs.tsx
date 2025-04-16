@@ -32,7 +32,6 @@ const Jobs: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
   const [debugInfo, setDebugInfo] = useState<string>("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const { userProfile, currentUser } = useAuth();
@@ -236,25 +235,9 @@ const Jobs: React.FC = () => {
             <p className="text-xl mb-8 text-primary-100">
             Ontdek uitdagende vacatures die perfect aansluiten bij jouw unieke vaardigheden en ambities. Ons platform biedt kansen waarin jouw talenten volledig tot hun recht komen, met volop ruimte voor groei en ontwikkeling. Vind de baan die jouw professionele toekomst vormgeeft.
             </p>
-            <button 
-              onClick={() => setShowDebugInfo(!showDebugInfo)} 
-              className="text-xs text-white/50 mt-2 p-1 rounded hover:bg-white/10"
-            >
-              {showDebugInfo ? "Verberg debug info" : "Toon debug info"}
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Debug info (alleen voor development) */}
-      {showDebugInfo && (
-        <div className="container mx-auto px-4 mt-4">
-          <div className="bg-gray-900 text-gray-300 p-4 rounded text-xs font-mono whitespace-pre-wrap">
-            <p>Debug informatie:</p>
-            {debugInfo || "Geen debug informatie beschikbaar"}
-          </div>
-        </div>
-      )}
 
       {/* Vacature lijst */}
       <div className="container mx-auto px-4 py-12">

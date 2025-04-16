@@ -158,7 +158,7 @@ const JobApplicationForm: React.FC = () => {
       };
       
       // Sla de sollicitatie op in Firestore
-      const applicationsRef = collection(db, 'applications');
+      const applicationsRef = collection(db, 'sollicitaties');
       await addDoc(applicationsRef, application);
       
       setSuccess(true);
@@ -167,9 +167,19 @@ const JobApplicationForm: React.FC = () => {
       setTimeout(() => {
         navigate('/dashboard');
       }, 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Fout bij het versturen van de sollicitatie:', err);
-      setError('Er is een fout opgetreden bij het versturen van je sollicitatie');
+      
+      // Specifieke foutberichten op basis van de foutcode
+      if (err.code === 'permission-denied') {
+        setError('Je hebt niet de juiste rechten om een sollicitatie te versturen. Zorg ervoor dat je bent ingelogd als werkzoekende.');
+      } else if (err.code === 'unavailable' || err.code === 'network-request-failed') {
+        setError('Er is een netwerkprobleem opgetreden. Controleer je internetverbinding en probeer het opnieuw.');
+      } else if (err.code === 'storage/unauthorized') {
+        setError('Je hebt niet de juiste rechten om je CV te uploaden. Zorg ervoor dat je bent ingelogd als werkzoekende.');
+      } else {
+        setError('Er is een fout opgetreden bij het versturen van je sollicitatie. Probeer het later opnieuw of neem contact op met de helpdesk.');
+      }
     } finally {
       setSubmitting(false);
     }

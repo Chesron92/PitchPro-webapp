@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import Header from '../components/common/Header';
@@ -17,6 +17,7 @@ interface CandidateBasicData {
 interface MeetingFormInputs {
   date: Date;
   time: string;
+  endTime: string;
   title: string;
   description: string;
   meetingType: 'sollicitatiegesprek' | 'kennismaking';
@@ -24,6 +25,10 @@ interface MeetingFormInputs {
   location?: string;
   // Voor online meetings
   meetingLink?: string;
+  // Voor handmatige toevoeging van kandidaten
+  candidateId?: string;
+  candidateName?: string;
+  candidateEmail?: string;
 }
 
 const ScheduleMeeting: React.FC = () => {
@@ -35,6 +40,12 @@ const ScheduleMeeting: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<CandidateBasicData[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  // State voor huidige maand en jaar in de kalender
+  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   
   const { 
     register, 
@@ -42,11 +53,13 @@ const ScheduleMeeting: React.FC = () => {
     control, 
     watch, 
     formState: { errors }, 
-    setValue
+    setValue,
+    reset
   } = useForm<MeetingFormInputs>({
     defaultValues: {
       date: new Date(),
       time: '10:00',
+      endTime: '11:00',
       title: '',
       description: '',
       meetingType: 'kennismaking',
@@ -57,10 +70,13 @@ const ScheduleMeeting: React.FC = () => {
   // Kijk of de locatie een lokale afspraak is of online
   const locationType = watch('locationType');
   
-  // Haal kandidaat gegevens op
+  // Haal kandidaat gegevens op als er een ID is
   useEffect(() => {
     const fetchCandidate = async () => {
-      if (!id) return;
+      if (!id) {
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
@@ -68,12 +84,18 @@ const ScheduleMeeting: React.FC = () => {
         
         if (candidateDoc.exists()) {
           const candidateData = candidateDoc.data();
-          setCandidate({
+          const candidateInfo = {
             id: candidateDoc.id,
             name: candidateData.displayName || candidateData.name || 'Onbekende kandidaat',
             email: candidateData.email,
             phoneNumber: candidateData.phoneNumber
-          });
+          };
+          setCandidate(candidateInfo);
+          
+          // Vul automatisch de kandidaatinformatie in het formulier
+          setValue('candidateId', candidateInfo.id);
+          setValue('candidateName', candidateInfo.name);
+          setValue('candidateEmail', candidateInfo.email || '');
         } else {
           setError('Kandidaat niet gevonden');
         }
@@ -86,11 +108,104 @@ const ScheduleMeeting: React.FC = () => {
     };
     
     fetchCandidate();
-  }, [id]);
+  }, [id, setValue]);
+  
+  // Zoek kandidaten op basis van zoekterm
+  const searchCandidates = async () => {
+    if (!searchTerm.trim()) return;
+    
+    try {
+      setIsSearching(true);
+      setError(null);
+      
+      // Zoek in de users collectie op displayName, name of email
+      const usersRef = collection(db, 'users');
+      
+      // Helaas ondersteunt Firebase niet het zoeken met LIKE of case-insensitive, 
+      // dus we halen alle gebruikers op en filteren client-side
+      const querySnapshot = await getDocs(usersRef);
+      
+      const results: CandidateBasicData[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        // Filter gebruikers met werkzoekende/jobseeker rol
+        if (userData.role === 'werkzoekende' || userData.userType === 'werkzoekende' || 
+            userData.role === 'jobseeker' || userData.userType === 'jobseeker') {
+          
+          const name = userData.displayName || userData.name || '';
+          const email = userData.email || '';
+          
+          // Voeg toe als naam of email de zoekterm bevat (case-insensitive)
+          if (name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+              email.toLowerCase().includes(searchTerm.toLowerCase())) {
+            
+            results.push({
+              id: doc.id,
+              name: name,
+              email: email,
+              phoneNumber: userData.phoneNumber
+            });
+          }
+        }
+      });
+      
+      setSearchResults(results);
+      
+      if (results.length === 0) {
+        setError('Geen kandidaten gevonden met deze zoekopdracht');
+      }
+    } catch (err) {
+      console.error('Fout bij zoeken kandidaten:', err);
+      setError('Er is een fout opgetreden bij het zoeken naar kandidaten');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  // Selecteer een kandidaat uit de zoekresultaten
+  const selectCandidate = (selectedCandidate: CandidateBasicData) => {
+    setCandidate(selectedCandidate);
+    setValue('candidateId', selectedCandidate.id);
+    setValue('candidateName', selectedCandidate.name);
+    setValue('candidateEmail', selectedCandidate.email || '');
+    setSearchResults([]);
+    setSearchTerm('');
+  };
+  
+  // Handmatig een kandidaat toevoegen
+  const addManualCandidate = () => {
+    const manualName = watch('candidateName');
+    const manualEmail = watch('candidateEmail');
+    
+    if (!manualName) {
+      setError('Vul tenminste een naam in voor de kandidaat');
+      return;
+    }
+    
+    // Stel een tijdelijke kandidaat in voor de UI
+    setCandidate({
+      id: 'manual', // Dit wordt vervangen door de firestore ID na het aanmaken
+      name: manualName,
+      email: manualEmail,
+    });
+    
+    setSearchResults([]);
+    setSearchTerm('');
+  };
   
   // Afspraak toevoegen aan de database
   const onSubmit: SubmitHandler<MeetingFormInputs> = async (data) => {
-    if (!id || !currentUser || !candidate) return;
+    if (!currentUser) return;
+    
+    // Check of er een kandidaat geselecteerd of handmatig toegevoegd is
+    const candidateId = data.candidateId || (candidate ? candidate.id : null);
+    const candidateName = data.candidateName || (candidate ? candidate.name : null);
+    
+    if (!candidateId && !candidateName) {
+      setError('Selecteer een kandidaat of voeg handmatig een kandidaat toe');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -100,10 +215,35 @@ const ScheduleMeeting: React.FC = () => {
       const [hours, minutes] = data.time.split(':').map(Number);
       dateTime.setHours(hours, minutes);
       
+      // Bereken eindtijd
+      const endDateTime = new Date(data.date);
+      const [endHours, endMinutes] = data.endTime.split(':').map(Number);
+      endDateTime.setHours(endHours, endMinutes);
+      
+      // Als het een handmatig toegevoegde kandidaat is zonder ID, 
+      // maak eerst een gebruiker aan
+      let finalCandidateId = candidateId;
+      
+      if (candidateId === 'manual' || !candidateId) {
+        // Maak een nieuwe gebruiker aan in de users collectie
+        const newUserRef = await addDoc(collection(db, 'users'), {
+          displayName: candidateName,
+          email: data.candidateEmail || null,
+          role: 'werkzoekende',
+          userType: 'werkzoekende',
+          createdAt: Timestamp.now(),
+          createdBy: currentUser.uid,
+          isManuallyAdded: true
+        });
+        
+        finalCandidateId = newUserRef.id;
+      }
+      
       // Voorbereid de meeting data
       const meetingData = {
-        candidateId: id,
-        candidateName: candidate.name,
+        candidateId: finalCandidateId,
+        candidateName: candidateName,
+        candidateEmail: data.candidateEmail || null,
         recruiterId: currentUser.uid,
         recruiterName: userProfile?.displayName || 'Onbekende recruiter',
         title: data.title,
@@ -113,6 +253,7 @@ const ScheduleMeeting: React.FC = () => {
         location: data.locationType === 'locatie' ? data.location : null,
         meetingLink: data.locationType === 'online' ? data.meetingLink : null,
         dateTime: Timestamp.fromDate(dateTime),
+        endDateTime: Timestamp.fromDate(endDateTime),
         status: 'gepland',
         createdAt: Timestamp.now()
       };
@@ -123,14 +264,30 @@ const ScheduleMeeting: React.FC = () => {
       // Succes!
       setSuccess(true);
       
-      // Wacht 2 seconden en ga terug naar kandidaat profiel
+      // Wacht 2 seconden en ga terug naar dashboard
       setTimeout(() => {
-        navigate(`/candidate/${id}`);
+        navigate('/dashboard');
       }, 2000);
+      
+      // Reset het formulier met de huidige data om waarden te behouden
+      reset(data);
       
     } catch (err) {
       console.error('Error creating meeting:', err);
-      setError('Er is een fout opgetreden bij het plannen van de afspraak');
+      
+      let errorMessage = 'Er is een fout opgetreden bij het plannen van de afspraak';
+      
+      if (err instanceof Error) {
+        console.error('Foutdetails:', err.message);
+        
+        if (err.message.includes('permission-denied')) {
+          errorMessage = 'Je hebt geen toestemming om afspraken te plannen. Controleer of je de juiste rechten hebt.';
+        } else if (err.message.includes('network')) {
+          errorMessage = 'Er lijkt een netwerkprobleem te zijn. Controleer je internetverbinding en probeer het opnieuw.';
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -141,13 +298,29 @@ const ScheduleMeeting: React.FC = () => {
     return new Date(year, month + 1, 0).getDate();
   };
   
+  // Navigeer naar de vorige maand
+  const goToPreviousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+  };
+  
+  // Navigeer naar de volgende maand
+  const goToNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+  };
+  
   const generateCalendar = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    
-    const firstDay = new Date(year, month, 1).getDay();
-    const totalDays = daysInMonth(year, month);
+    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+    const totalDays = daysInMonth(currentYear, currentMonth);
     
     const days = [];
     
@@ -158,13 +331,14 @@ const ScheduleMeeting: React.FC = () => {
     
     // Voeg dagen toe
     for (let i = 1; i <= totalDays; i++) {
-      const date = new Date(year, month, i);
+      const date = new Date(currentYear, currentMonth, i);
+      const today = new Date();
       const isToday = today.getDate() === i && 
-                      today.getMonth() === month && 
-                      today.getFullYear() === year;
+                      today.getMonth() === currentMonth && 
+                      today.getFullYear() === currentYear;
       const isSelected = selectedDate?.getDate() === i && 
-                         selectedDate?.getMonth() === month && 
-                         selectedDate?.getFullYear() === year;
+                         selectedDate?.getMonth() === currentMonth && 
+                         selectedDate?.getFullYear() === currentYear;
       
       days.push(
         <div 
@@ -201,24 +375,13 @@ const ScheduleMeeting: React.FC = () => {
   }
   
   // Error state
-  if (error || !candidate) {
+  if (loading && id) {
     return (
       <div className="min-h-screen bg-white">
         <Header />
         <div className="container mx-auto px-4 py-32 text-center">
-          <div className="max-w-md mx-auto">
-            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Fout bij het laden</h2>
-            <p className="text-gray-600 mb-6">{error || 'Kandidaat niet gevonden'}</p>
-            <button 
-              onClick={() => navigate('/candidates')} 
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-            >
-              Terug naar kandidaten
-            </button>
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Bezig met laden...</p>
         </div>
         <Footer />
       </div>
@@ -234,13 +397,156 @@ const ScheduleMeeting: React.FC = () => {
         <div className="container mx-auto px-4">
           <h1 className="text-4xl font-bold mb-6 text-center">Afspraak plannen</h1>
           <p className="text-xl text-center max-w-3xl mx-auto">
-            Plan een afspraak met <span className="font-bold">{candidate.name}</span>
+            {candidate 
+              ? `Plan een afspraak met ${candidate.name}`
+              : 'Plan een afspraak met een kandidaat'}
           </p>
         </div>
       </div>
       
       <div className="container mx-auto px-4 py-12">
         <div className="flex flex-col md:flex-row gap-8">
+          {/* Kandidaat selectie formulier */}
+          <div className="w-full md:w-1/2 bg-white rounded-lg shadow-md overflow-hidden mb-8">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Kandidaat selecteren</h2>
+              
+              {/* Zoekbalk */}
+              <div className="mb-6">
+                <label className="block text-gray-700 text-sm font-bold mb-2">
+                  Zoek een kandidaat
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Voer naam of e-mail in..."
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  />
+                  <button
+                    type="button"
+                    onClick={searchCandidates}
+                    disabled={isSearching}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {isSearching ? 'Zoeken...' : 'Zoek'}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Zoekresultaten */}
+              {searchResults.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="font-medium mb-2">Gevonden kandidaten</h3>
+                  <div className="max-h-60 overflow-y-auto border rounded-md">
+                    {searchResults.map((result) => (
+                      <div 
+                        key={result.id}
+                        onClick={() => selectCandidate(result)}
+                        className="p-3 border-b hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                      >
+                        <div>
+                          <p className="font-medium">{result.name}</p>
+                          {result.email && <p className="text-sm text-gray-600">{result.email}</p>}
+                        </div>
+                        <button className="text-blue-600 hover:text-blue-800 text-sm">
+                          Selecteren
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Toon melding als geen resultaten gevonden zijn */}
+              {searchTerm && searchResults.length === 0 && !isSearching && (
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800">
+                    Geen kandidaten gevonden. Controleer de spelling of zoek op een andere naam of e-mail.
+                  </p>
+                </div>
+              )}
+              
+              {/* OF handmatig toevoegen */}
+              <div className="mb-6">
+                <div className="relative flex items-center">
+                  <div className="flex-grow border-t border-gray-300"></div>
+                  <span className="flex-shrink mx-4 text-gray-600">OF</span>
+                  <div className="flex-grow border-t border-gray-300"></div>
+                </div>
+              </div>
+              
+              {/* Handmatig kandidaat toevoegen */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Voeg handmatig een kandidaat toe</h3>
+                
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="candidateName">
+                    Naam kandidaat *
+                  </label>
+                  <input
+                    id="candidateName"
+                    {...register('candidateName', { required: 'Naam is verplicht' })}
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    type="text"
+                    placeholder="Volledige naam"
+                  />
+                  {errors.candidateName && (
+                    <p className="text-red-500 text-xs italic mt-1">{errors.candidateName.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="candidateEmail">
+                    E-mail kandidaat
+                  </label>
+                  <input
+                    id="candidateEmail"
+                    {...register('candidateEmail', { 
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: "Ongeldig e-mailadres"
+                      }
+                    })}
+                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    type="email"
+                    placeholder="E-mailadres"
+                  />
+                  {errors.candidateEmail && (
+                    <p className="text-red-500 text-xs italic mt-1">{errors.candidateEmail.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <button
+                    type="button"
+                    onClick={addManualCandidate}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                  >
+                    Bevestig kandidaat
+                  </button>
+                </div>
+              </div>
+              
+              {/* Geselecteerde kandidaat weergave */}
+              {candidate && (
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-medium mb-2">Geselecteerde kandidaat</h3>
+                  <p className="text-xl font-bold">{candidate.name}</p>
+                  {candidate.email && <p className="text-gray-600">{candidate.email}</p>}
+                  <button
+                    type="button"
+                    onClick={() => setCandidate(null)}
+                    className="mt-2 text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Verwijderen
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
           {/* Kalender gedeelte */}
           <div className="w-full md:w-1/2 bg-white rounded-lg shadow-md overflow-hidden">
             <div className="p-6">
@@ -248,9 +554,30 @@ const ScheduleMeeting: React.FC = () => {
               
               {/* Maand en jaar */}
               <div className="flex justify-between items-center mb-4">
+                <button 
+                  onClick={goToPreviousMonth}
+                  className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+                  aria-label="Vorige maand"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
                 <h3 className="text-lg font-medium">
-                  {new Date().toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' })}
+                  {new Date(currentYear, currentMonth).toLocaleDateString('nl-NL', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
                 </h3>
+                <button 
+                  onClick={goToNextMonth}
+                  className="p-2 rounded-full hover:bg-gray-200 transition-colors"
+                  aria-label="Volgende maand"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
               </div>
               
               {/* Weekdagen */}
@@ -313,16 +640,32 @@ const ScheduleMeeting: React.FC = () => {
                   {/* Tijdstip */}
                   <div>
                     <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="time">
-                      Tijdstip *
+                      Begintijd *
                     </label>
                     <input
                       id="time"
-                      {...register('time', { required: 'Tijdstip is verplicht' })}
+                      {...register('time', { required: 'Begintijd is verplicht' })}
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                       type="time"
                     />
                     {errors.time && (
                       <p className="text-red-500 text-xs italic mt-1">{errors.time.message}</p>
+                    )}
+                  </div>
+                  
+                  {/* Eindtijd */}
+                  <div>
+                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="endTime">
+                      Eindtijd *
+                    </label>
+                    <input
+                      id="endTime"
+                      {...register('endTime', { required: 'Eindtijd is verplicht' })}
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      type="time"
+                    />
+                    {errors.endTime && (
+                      <p className="text-red-500 text-xs italic mt-1">{errors.endTime.message}</p>
                     )}
                   </div>
                   

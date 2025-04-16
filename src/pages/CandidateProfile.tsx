@@ -519,30 +519,11 @@ const CandidateProfile: React.FC = () => {
                           <p className="text-gray-800">{candidate.phoneNumber}</p>
                         </div>
                       )}
-                      
-                      {/* Afspraak maken knop */}
-                      <div className="mt-6">
-                        <button
-                          onClick={() => navigate(`/schedule-meeting/${id}`)}
-                          className="w-full py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
-                        >
-                          Afspraak maken
-                        </button>
-                      </div>
                     </div>
                   </div>
                   
+                  {/* Lege div toegevoegd om layout consistent te houden */}
                   <div className="mt-6 space-y-4">
-                    <button 
-                      onClick={handleCVView}
-                      className="w-full flex items-center justify-center py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                      </svg>
-                      CV bekijken
-                    </button>
-                    
                     <button 
                       onClick={handleScheduleMeeting}
                       className="w-full flex items-center justify-center py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
