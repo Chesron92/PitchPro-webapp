@@ -11,6 +11,7 @@ const ProfilePage: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
   const navigate = useNavigate();
   
   // Als het nog aan het laden is, toon een laadscherm

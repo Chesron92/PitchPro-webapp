@@ -464,53 +464,60 @@ const ApplicationDetail: React.FC = () => {
   const renderCVTab = () => {
     if (!application) return null;
     
+    // Controleer of er profielinformatie beschikbaar is
+    const hasProfileInfo = applicantProfile && 
+                          applicantProfile.profile && 
+                          Object.keys(applicantProfile.profile).length > 0;
+    
     return (
       <div className="space-y-6">
-        {/* CV Weergave */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">CV van {application.applicantName}</h2>
-            
-            {application.cvUrl ? (
-              <div className="aspect-[3/4] bg-gray-50 rounded-md border border-gray-200 overflow-hidden">
-                {/* CV iframe viewer */}
-                <iframe
-                  src={application.cvUrl}
-                  className="w-full h-full"
-                  title={`CV van ${application.applicantName}`}
-                ></iframe>
-              </div>
-            ) : (
-              <div className="aspect-[3/4] bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center">
-                <div className="text-center p-6">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  <p className="text-gray-600">Geen CV bijgevoegd</p>
+        {/* CV Weergave - alleen tonen als er een CV is OF als er geen profielinformatie is */}
+        {(application.cvUrl || !hasProfileInfo) && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">CV van {application.applicantName}</h2>
+              
+              {application.cvUrl ? (
+                <div className="aspect-[3/4] bg-gray-50 rounded-md border border-gray-200 overflow-hidden">
+                  {/* CV iframe viewer */}
+                  <iframe
+                    src={application.cvUrl}
+                    className="w-full h-full"
+                    title={`CV van ${application.applicantName}`}
+                  ></iframe>
                 </div>
+              ) : (
+                <div className="aspect-[3/4] bg-gray-50 rounded-md border border-gray-200 flex items-center justify-center">
+                  <div className="text-center p-6">
+                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p className="text-gray-600">Geen CV bijgevoegd</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {application.cvUrl && (
+              <div className="bg-gray-50 p-6 border-t border-gray-200">
+                <a 
+                  href={application.cvUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center justify-center px-6 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 00-1.414-1.414L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"></path>
+                  </svg>
+                  Download CV
+                </a>
               </div>
             )}
           </div>
-          
-          {application.cvUrl && (
-            <div className="bg-gray-50 p-6 border-t border-gray-200">
-              <a 
-                href={application.cvUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="flex items-center justify-center px-6 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors"
-              >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 00-1.414-1.414L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd"></path>
-                </svg>
-                Download CV
-              </a>
-            </div>
-          )}
-        </div>
+        )}
         
         {/* Uitgebreide profiel informatie */}
-        {applicantProfile && (
+        {hasProfileInfo && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-4">Uitgebreid profiel</h2>

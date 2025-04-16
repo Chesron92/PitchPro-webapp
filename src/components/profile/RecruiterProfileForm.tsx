@@ -116,16 +116,21 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
       kvkNumber: dataSource.kvkNumber || formCache.kvkNumber || user.kvkNumber || profile.kvkNumber || '',
       
       // Profielfoto
-      profilePhoto: dataSource.profilePhoto || formCache.profilePhoto || user.profilePhoto || profile.profilePhoto || user.photoURL || '',
+      profilePhoto: dataSource.profilePhoto || formCache.profilePhoto || user.profilePhoto || profile.profilePhoto || '',
     };
+    
+    // Haal profielfoto op
+    const photoURL = user.profilePhoto || user.photoURL || 
+                    (user.profile && user.profile.profilePhoto ? user.profile.profilePhoto : '');
+    
+    if (photoURL) {
+      console.log("Profielfoto URL gevonden:", photoURL);
+      setProfilePhotoUrl(photoURL);
+      initialValues.profilePhoto = photoURL;
+    }
     
     // Update de initiële formulierwaarden
     setInitialFormValues(initialValues);
-    
-    // Stel profielfoto URL in
-    if (initialValues.profilePhoto) {
-      setProfilePhotoUrl(initialValues.profilePhoto);
-    }
     
     // Reset het formulier met de nieuwe waarden
     reset(initialValues as RecruiterFormInputs);
@@ -193,7 +198,7 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
       setLoading(false);
     }
   };
-
+  
   const onSubmit = async (data: RecruiterFormInputs) => {
     try {
       setLoading(true);
@@ -214,8 +219,10 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
         displayName: data.displayName,
         phoneNumber: data.phoneNumber,
         phone: data.phoneNumber, // Duplicaat voor compatibiliteit
-        profilePhoto: data.profilePhoto, // Profielfoto toevoegen
-        photoURL: data.profilePhoto, // Ook voor compatibiliteit
+        
+        // Profielfoto
+        profilePhoto: profilePhotoUrl || data.profilePhoto || '',
+        photoURL: profilePhotoUrl || data.profilePhoto || '',
         
         // Bedrijfsgegevens op het hoofdobject voor backwards compatibiliteit
         companyName: data.companyName,
@@ -244,7 +251,7 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
           kvkNumber: data.kvkNumber,
           phoneNumber: data.phoneNumber, // Voeg ook toe aan het profile object
           phone: data.phoneNumber, // Voor compatibiliteit
-          profilePhoto: data.profilePhoto, // Profielfoto toevoegen
+          profilePhoto: profilePhotoUrl || data.profilePhoto || '',
           
           // Adresgegevens ook in het profile object
           address: {
@@ -261,8 +268,7 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
           companyCity: data.companyCity
         },
         
-        // Update timestamp
-        updatedAt: new Date()
+        updatedAt: serverTimestamp(),
       };
       
       // Sla op in Firestore
@@ -303,14 +309,38 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
   };
   
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Persoonlijke gegevens */}
-        <div>
-          <h2 className="text-lg font-medium mb-4">Persoonlijke gegevens</h2>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+      {/* Persoonlijke gegevens */}
+      <div>
+        <h2 className="text-lg font-medium mb-4">Persoonlijke gegevens</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Naam */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+            <input
+              type="text"
+              {...register('displayName', { required: "Naam is verplicht" })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              onChange={e => updateFieldCache('displayName', e.target.value)}
+            />
+            {errors.displayName && <p className="mt-1 text-sm text-red-600">{errors.displayName.message}</p>}
+          </div>
+          
+          {/* Telefoonnummer */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Telefoonnummer</label>
+            <input
+              type="tel"
+              {...register('phoneNumber')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="+31 6 12345678"
+              onChange={e => updateFieldCache('phoneNumber', e.target.value)}
+            />
+          </div>
           
           {/* Profielfoto upload sectie */}
-          <div className="mb-6">
+          <div className="mb-6 col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Profielfoto</label>
             <div className="flex items-center space-x-4">
               {profilePhotoUrl ? (
@@ -372,46 +402,15 @@ const RecruiterProfileForm: React.FC<RecruiterProfileFormProps> = ({
                 )}
               </div>
             </div>
-            <input type="hidden" {...register('profilePhoto')} />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Naam contactpersoon</label>
-            <input
-              type="text"
-              {...register('displayName', { required: 'Naam is verplicht' })}
-              className={`w-full px-3 py-2 border rounded-md ${errors.displayName ? 'border-red-500' : 'border-gray-300'}`}
-              onChange={e => updateFieldCache('displayName', e.target.value)}
-            />
-            {errors.displayName && <p className="mt-1 text-sm text-red-600">{errors.displayName.message}</p>}
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Functie binnen bedrijf</label>
-            <input
-              type="text"
-              {...register('position')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="bijv. HR Manager, Recruiter"
-              onChange={e => updateFieldCache('position', e.target.value)}
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Telefoonnummer</label>
-            <input
-              type="tel"
-              {...register('phoneNumber')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              onChange={e => updateFieldCache('phoneNumber', e.target.value)}
-            />
           </div>
         </div>
+      </div>
+      
+      {/* Bedrijfsgegevens */}
+      <div className="mt-8">
+        <h2 className="text-lg font-medium mb-4">Bedrijfsgegevens</h2>
         
-        {/* Bedrijfsgegevens */}
-        <div>
-          <h2 className="text-lg font-medium mb-4">Bedrijfsgegevens</h2>
-          
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Bedrijfsnaam</label>
             <input

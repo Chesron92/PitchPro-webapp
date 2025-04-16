@@ -32,16 +32,10 @@ const Jobs: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const { userProfile, currentUser } = useAuth();
   const { addFavorite, removeFavorite, isFavorite, loading: favoritesLoading } = useFavorites();
   const user = userProfile || currentUser || {};
-
-  const addDebugInfo = (info: string) => {
-    console.log(info);
-    setDebugInfo(prev => prev + "\n" + info);
-  };
 
   // Dummy vacature data voor als er geen vacatures worden gevonden
   const dummyJobs: Job[] = [
@@ -76,20 +70,20 @@ const Jobs: React.FC = () => {
         // LET OP: Wijziging naar 'jobs' collectie, maar dit vereist update van security rules
         const jobsRef = collection(db, 'jobs');
         
-        addDebugInfo("Query uitgevoerd op collectie: jobs");
+        console.log("Query uitgevoerd op collectie: jobs");
         
         // Query zonder filters - haal alle vacatures op
         const q = query(jobsRef);
         
         const querySnapshot = await getDocs(q);
         
-        addDebugInfo(`Er zijn ${querySnapshot.size} vacatures gevonden in Firestore (jobs collectie)`);
+        console.log(`Er zijn ${querySnapshot.size} vacatures gevonden in Firestore (jobs collectie)`);
         
         // Verwerk de resultaten
         const fetchedJobs: Job[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          addDebugInfo(`Vacature ID: ${doc.id}, Titel: ${data.title || 'Onbekend'}`);
+          console.log(`Vacature ID: ${doc.id}, Titel: ${data.title || 'Onbekend'}`);
           
           fetchedJobs.push({
             id: doc.id,
@@ -111,30 +105,29 @@ const Jobs: React.FC = () => {
         
         if (fetchedJobs.length > 0) {
           setJobs(fetchedJobs);
-          addDebugInfo("Vacatures succesvol geladen uit jobs collectie");
+          console.log("Vacatures succesvol geladen uit jobs collectie");
         } else {
           // ALLEEN VOOR TESTING: Gebruik dummy data als er geen vacatures zijn
-          addDebugInfo("Geen echte vacatures gevonden, toon dummy data voor testing");
+          console.log("Geen echte vacatures gevonden, toon dummy data voor testing");
           setJobs(dummyJobs);
         }
         
         setError(null);
       } catch (err) {
         console.error("Fout bij het ophalen van vacatures:", err);
-        addDebugInfo(`Error: ${err instanceof Error ? err.message : String(err)}`);
         const errorMessage = err instanceof Error ? err.message : String(err);
         
         // Specifiek foutbericht als het een permissieprobleem is
         if (errorMessage.includes("permission-denied")) {
-          addDebugInfo("BELANGRIJK: De Firebase security rules geven geen toegang tot de 'jobs' collectie.");
-          addDebugInfo("Je moet de security rules aanpassen om de 'jobs' collectie te kunnen lezen.");
+          console.log("BELANGRIJK: De Firebase security rules geven geen toegang tot de 'jobs' collectie.");
+          console.log("Je moet de security rules aanpassen om de 'jobs' collectie te kunnen lezen.");
           setError("Geen toegangsrechten voor de vacature-database. Neem contact op met de beheerder.");
         } else {
           setError("Er is een fout opgetreden bij het laden van de vacatures. Probeer het later opnieuw.");
         }
         
         // ALLEEN VOOR TESTING: Gebruik dummy data bij een fout
-        addDebugInfo("Fout bij ophalen, toon dummy data voor testing");
+        console.log("Fout bij ophalen, toon dummy data voor testing");
         setJobs(dummyJobs);
       } finally {
         setLoading(false);
