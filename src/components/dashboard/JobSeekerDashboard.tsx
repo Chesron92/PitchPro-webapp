@@ -96,11 +96,6 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
     if (profileCompletion < 70) return 'bg-yellow-500';
     return 'bg-green-500';
   };
-  
-  const handleAddAppointment = () => {
-    // Voor werkzoekenden, toon een melding dat deze functie nog niet beschikbaar is
-    alert('Deze functie is momenteel alleen beschikbaar voor recruiters. Als werkzoekende kun je alleen afspraken ontvangen van recruiters.');
-  };
 
   // Haal sollicitaties op
   useEffect(() => {
@@ -306,12 +301,6 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
           <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Mijn Agenda</h3>
-              <button 
-                onClick={handleAddAppointment}
-                className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md"
-              >
-                + Afspraak toevoegen
-              </button>
             </div>
             
             <div className="space-y-3">
