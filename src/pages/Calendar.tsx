@@ -4,6 +4,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
+import { isRecruiter } from '../types/user';
 
 interface Meeting {
   id: string;
@@ -20,7 +21,7 @@ interface Meeting {
 }
 
 const Calendar: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,9 @@ const Calendar: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [selectedDayMeetings, setSelectedDayMeetings] = useState<Meeting[]>([]);
+
+  // Controleer of de gebruiker een recruiter is
+  const isUserRecruiter = isRecruiter(userProfile);
 
   // Haal alle meetings op voor deze gebruiker
   useEffect(() => {
@@ -391,18 +395,20 @@ const Calendar: React.FC = () => {
             </div>
           )}
           
-          {/* Link om een nieuwe afspraak toe te voegen */}
-          <div className="flex justify-end">
-            <a 
-              href="/schedule-meeting" 
-              className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Nieuwe afspraak plannen
-            </a>
-          </div>
+          {/* Link om een nieuwe afspraak toe te voegen, alleen tonen voor recruiters */}
+          {isUserRecruiter && (
+            <div className="flex justify-end">
+              <a 
+                href="/schedule-meeting" 
+                className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Nieuwe afspraak plannen
+              </a>
+            </div>
+          )}
         </div>
       </div>
       

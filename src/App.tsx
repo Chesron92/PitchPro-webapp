@@ -300,14 +300,29 @@ const App: React.FC = () => {
                 <Route path="/job-application/:jobId" element={<JobApplicationForm />} />
               </Route>
               
-              {/* Kandidaten pagina alleen voor recruiters */}
+              {/* Job applicant routes */}
+              <Route element={<ProtectedRoute requiredRole="job-seeker" />}>
+                <Route path="/applications" element={<Applications />} />
+                <Route path="/search-jobs" element={<SearchJobs />} />
+              </Route>
+
+              {/* Recruiter specific routes */}
               <Route element={<ProtectedRoute requiredRole="recruiter" />}>
                 <Route path="/candidates" element={<Candidates />} />
                 <Route path="/candidate/:id" element={<CandidateProfile />} />
                 <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
                 <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
               </Route>
-              
+
+              {/* Shared routes (accessible to both job seekers and recruiters) */}
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:conversationId" element={<Conversation />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/job/:id" element={<JobDetail />} />
+              <Route path="/application/:id" element={<ApplicationDetail />} />
+
               {/* Redirect route (voor directe doorverwijzing naar dashboard/login) */}
               <Route path="/redirect" element={<Redirect />} />
               
@@ -319,10 +334,6 @@ const App: React.FC = () => {
                 <Route element={<ProtectedContent />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   
-                  {/* Berichten route */}
-                  <Route path="/messages" element={<Messages />} />
-                  <Route path="/messages/:chatId" element={<Messages />} />
-                  
                   {/* Profiel routes met onze nieuwe ProfilePage component */}
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/profile/:type" element={<ProfilePage />} />
@@ -332,21 +343,11 @@ const App: React.FC = () => {
                   {/* CV Preview pagina */}
                   <Route path="/cv-preview" element={<CVPreview />} />
                   
-                  {/* Sollicitatie detail pagina */}
-                  <Route path="/applications/:applicationId" element={<ApplicationDetail />} />
-
                   {/* Vacature maken/bewerken pagina - alleen voor recruiters */}
                   <Route element={<ProtectedRoute requiredRole="recruiter" />}>
                     <Route path="/create-job" element={<CreateJob />} />
                     <Route path="/edit-job/:jobId" element={<EditJob />} />
                   </Route>
-
-                  {/* Agenda pagina */}
-                  <Route path="/agenda" element={<Calendar />} />
-
-                  {/* Schedule Meeting pagina */}
-                  <Route path="/schedule-meeting/:candidateId" element={<ScheduleMeeting />} />
-                  <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
                 </Route>
               </Route>
               
