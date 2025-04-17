@@ -29,6 +29,14 @@ import ScheduleMeeting from './pages/ScheduleMeeting';
 import Calendar from './pages/Calendar';
 import ApplicationDetail from './pages/ApplicationDetail';
 
+// Voeg de ontbrekende componenten toe
+// Deze imports toevoegen:
+// Placeholder componenten voor ontbrekende pagina's
+const Applications = () => <div className="p-4"><h1 className="text-2xl font-bold">Applications</h1><p>Applications page</p></div>;
+const SearchJobs = () => <div className="p-4"><h1 className="text-2xl font-bold">Search Jobs</h1><p>Search jobs page</p></div>;
+const Conversation = () => <div className="p-4"><h1 className="text-2xl font-bold">Conversation</h1><p>Conversation page</p></div>;
+const Settings = () => <div className="p-4"><h1 className="text-2xl font-bold">Settings</h1><p>Settings page</p></div>;
+
 // Dashboard componenten
 import JobSeekerDashboard from './components/dashboard/JobSeekerDashboard';
 import RecruiterDashboard from './components/dashboard/RecruiterDashboard';
@@ -301,7 +309,7 @@ const App: React.FC = () => {
               </Route>
               
               {/* Job applicant routes */}
-              <Route element={<ProtectedRoute requiredRole="job-seeker" />}>
+              <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
                 <Route path="/applications" element={<Applications />} />
                 <Route path="/search-jobs" element={<SearchJobs />} />
               </Route>
