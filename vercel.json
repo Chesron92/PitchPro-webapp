@@ -1,25 +1,13 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "version": 2,
+  "routes": [
+    { "src": "/static/(.*)", "dest": "/static/$1", "headers": { "cache-control": "public, max-age=31536000, immutable" } },
+    { "src": "/error-handler.js", "dest": "/error-handler.js" },
+    { "src": "/favicon.ico", "dest": "/favicon.ico" },
+    { "src": "/manifest.json", "dest": "/manifest.json" },
+    { "src": "/fallback.html", "dest": "/fallback.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=0" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
-    },
-    {
-      "source": "/static/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
-  ],
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "build",
-  "trailingSlash": false,
   "cleanUrls": true,
-  "public": true
+  "trailingSlash": false
 }
