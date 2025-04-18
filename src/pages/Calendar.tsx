@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { isRecruiter } from '../types/user';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 interface Meeting {
   id: string;
@@ -23,6 +23,7 @@ interface Meeting {
 
 const Calendar: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
+  const navigate = useNavigate();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +33,23 @@ const Calendar: React.FC = () => {
   const [selectedDayMeetings, setSelectedDayMeetings] = useState<Meeting[]>([]);
 
   // Controleer of de gebruiker een recruiter is
-  const isUserRecruiter = isRecruiter(userProfile);
+  const isUserRecruiter = userProfile && isRecruiter(userProfile);
 
   // Direct redirect naar dashboard als de gebruiker geen recruiter is
+  useEffect(() => {
+    if (currentUser && userProfile && !isUserRecruiter) {
+      console.log("Geen recruiter, doorverwijzen naar dashboard");
+      navigate("/dashboard");
+    }
+  }, [currentUser, userProfile, isUserRecruiter, navigate]);
+
+  // Als de gebruiker niet is ingelogd of niet een recruiter is, toon niks en wacht op redirect
+  if (!currentUser || !userProfile) {
+    return <div className="flex justify-center items-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+    </div>;
+  }
+
   if (!isUserRecruiter) {
     return <Navigate to="/dashboard" />;
   }
