@@ -88,15 +88,4 @@ setTimeout(function() {
     
     rootElement.appendChild(errorDiv);
   }
-}, 5000);
-
-// Globale error handler voor PitchPro
-window.addEventListener('error', function(event) {
-  console.error('Global error caught:', event.error);
-  
-  // Hier kun je errormeldingen loggen naar een externe service
-  // of ervoor kiezen om een gebruiksvriendelijke foutmelding te tonen
-  
-  // Voorkom standaard browser error pagina
-  event.preventDefault();
-}); 
+}, 5000); 

@@ -1,12 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/index.html" },
-    { "source": "/static/(.*)", "destination": "/static/$1" },
-    { "source": "/favicon.ico", "destination": "/favicon.ico" },
-    { "source": "/manifest.json", "destination": "/manifest.json" },
-    { "source": "/error-handler.js", "destination": "/error-handler.js" },
-    { "source": "/logo192.png", "destination": "/logo192.png" },
-    { "source": "/logo512.png", "destination": "/logo512.png" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
@@ -18,7 +11,7 @@
       ]
     },
     {
-      "source": "/(.*)\\.(js|css|svg|jpg|jpeg|png|ico|json)",
+      "source": "/static/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
@@ -26,5 +19,7 @@
   ],
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "build",
-  "trailingSlash": false
+  "trailingSlash": false,
+  "cleanUrls": true,
+  "public": true
 }
