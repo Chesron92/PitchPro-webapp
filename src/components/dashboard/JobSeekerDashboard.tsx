@@ -338,6 +338,7 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

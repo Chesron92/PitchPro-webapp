@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../contexts/AuthContext';
+import { isRecruiter } from '../types/user';
 
 interface CandidateBasicData {
   id: string;
@@ -46,6 +47,14 @@ const ScheduleMeeting: React.FC = () => {
   // State voor huidige maand en jaar in de kalender
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  
+  // Controleer of de gebruiker een recruiter is
+  const isUserRecruiter = isRecruiter(userProfile);
+
+  // Direct redirect naar dashboard als de gebruiker geen recruiter is
+  if (!isUserRecruiter) {
+    return <Navigate to="/dashboard" />;
+  }
   
   const { 
     register, 
