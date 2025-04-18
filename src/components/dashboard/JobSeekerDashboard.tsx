@@ -338,15 +338,6 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
-              
-              <div className="flex justify-center mt-4">
-                <a 
-                  href="#" 
-                  className="inline-block text-primary-600 hover:text-primary-800 font-medium"
-                >
-                  Beheer je sollicitatiekalender
-                </a>
-              </div>
             </div>
           </div>
         </div>

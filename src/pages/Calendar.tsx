@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { isRecruiter } from '../types/user';
+import { Navigate } from 'react-router-dom';
 
 interface Meeting {
   id: string;
@@ -32,6 +33,11 @@ const Calendar: React.FC = () => {
 
   // Controleer of de gebruiker een recruiter is
   const isUserRecruiter = isRecruiter(userProfile);
+
+  // Direct redirect naar dashboard als de gebruiker geen recruiter is
+  if (!isUserRecruiter) {
+    return <Navigate to="/dashboard" />;
+  }
 
   // Haal alle meetings op voor deze gebruiker
   useEffect(() => {
