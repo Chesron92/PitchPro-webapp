@@ -9,7 +9,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { nl } from 'date-fns/locale';
+import { nl } from 'date-fns/locale/nl';
 import './datepicker-custom.css';
 
 // Helper functie om te zorgen dat er geen objecten direct worden gerenderd
