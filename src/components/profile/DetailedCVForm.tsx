@@ -11,7 +11,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, isValid, parse } from 'date-fns';
 import { parseISO } from 'date-fns/parseISO';
-import { nl } from 'date-fns/locale';
+import { nl } from 'date-fns/locale/nl';
 import './datepicker-custom.css';
 
 // Helper functie om te zorgen dat er geen objecten direct worden gerenderd
