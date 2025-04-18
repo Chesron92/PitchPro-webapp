@@ -6,6 +6,7 @@ import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../contexts/AuthContext';
+import { isRecruiter } from '../types/user';
 
 interface CandidateBasicData {
   id: string;
@@ -46,6 +47,29 @@ const ScheduleMeeting: React.FC = () => {
   // State voor huidige maand en jaar in de kalender
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  
+  // Controleer of de gebruiker een recruiter is
+  const isUserRecruiter = isRecruiter(userProfile);
+
+  // Redirect of toon beperkingsmelding als de gebruiker geen recruiter is
+  if (!isUserRecruiter) {
+    return (
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
+          <h2 className="text-xl font-semibold mb-4">Deze functie is momenteel alleen beschikbaar voor recruiters.</h2>
+          <p className="mb-6">Als werkzoekende kun je alleen afspraken ontvangen van recruiters.</p>
+          <div className="text-right">
+            <a 
+              href="/dashboard" 
+              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md"
+            >
+              Sluit
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   const { 
     register, 
