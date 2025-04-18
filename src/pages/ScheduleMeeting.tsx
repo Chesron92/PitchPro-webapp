@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
@@ -51,24 +51,9 @@ const ScheduleMeeting: React.FC = () => {
   // Controleer of de gebruiker een recruiter is
   const isUserRecruiter = isRecruiter(userProfile);
 
-  // Redirect of toon beperkingsmelding als de gebruiker geen recruiter is
+  // Direct redirect naar dashboard als de gebruiker geen recruiter is
   if (!isUserRecruiter) {
-    return (
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-          <h2 className="text-xl font-semibold mb-4">Deze functie is momenteel alleen beschikbaar voor recruiters.</h2>
-          <p className="mb-6">Als werkzoekende kun je alleen afspraken ontvangen van recruiters.</p>
-          <div className="text-right">
-            <a 
-              href="/dashboard" 
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md"
-            >
-              Sluit
-            </a>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/dashboard" />;
   }
   
   const { 
