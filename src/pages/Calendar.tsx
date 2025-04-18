@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { isRecruiter } from '../types/user';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface Meeting {
   id: string;
@@ -35,25 +35,6 @@ const Calendar: React.FC = () => {
   // Controleer of de gebruiker een recruiter is
   const isUserRecruiter = userProfile && isRecruiter(userProfile);
 
-  // Direct redirect naar dashboard als de gebruiker geen recruiter is
-  useEffect(() => {
-    if (currentUser && userProfile && !isUserRecruiter) {
-      console.log("Geen recruiter, doorverwijzen naar dashboard");
-      navigate("/dashboard");
-    }
-  }, [currentUser, userProfile, isUserRecruiter, navigate]);
-
-  // Als de gebruiker niet is ingelogd of niet een recruiter is, toon niks en wacht op redirect
-  if (!currentUser || !userProfile) {
-    return <div className="flex justify-center items-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
-    </div>;
-  }
-
-  if (!isUserRecruiter) {
-    return <Navigate to="/dashboard" />;
-  }
-
   // Haal alle meetings op voor deze gebruiker
   useEffect(() => {
     const fetchMeetings = async () => {
@@ -65,12 +46,23 @@ const Calendar: React.FC = () => {
         
         const meetingsRef = collection(db, 'meetings');
         
-        // Alle meetings van de ingelogde gebruiker ophalen
-        const q = query(
-          meetingsRef,
-          where('recruiterId', '==', currentUser.uid),
-          orderBy('dateTime', 'asc')
-        );
+        // Query aanpassen op basis van gebruikersrol
+        let q;
+        if (isUserRecruiter) {
+          // Voor recruiters: alle meetings waar zij de recruiter zijn
+          q = query(
+            meetingsRef,
+            where('recruiterId', '==', currentUser.uid),
+            orderBy('dateTime', 'asc')
+          );
+        } else {
+          // Voor werkzoekenden: alleen meetings waar zij de kandidaat zijn
+          q = query(
+            meetingsRef,
+            where('candidateId', '==', currentUser.uid),
+            orderBy('dateTime', 'asc')
+          );
+        }
         
         const querySnapshot = await getDocs(q);
         const fetchedMeetings: Meeting[] = [];
@@ -102,7 +94,7 @@ const Calendar: React.FC = () => {
     };
     
     fetchMeetings();
-  }, [currentUser]);
+  }, [currentUser, isUserRecruiter]);
 
   // Helpers voor de kalender
   const daysInMonth = (year: number, month: number) => {
@@ -238,14 +230,16 @@ const Calendar: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header verwijderd om dubbele headers te voorkomen, deze wordt al via Layout geladen */}
-      
       {/* Pagina header */}
       <div className="w-full bg-gradient-to-r from-primary-600 to-primary-800 text-white py-24">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             <h1 className="text-3xl font-bold mb-4">Agenda</h1>
-            <p className="text-lg opacity-90">Bekijk en beheer al je geplande afspraken</p>
+            <p className="text-lg opacity-90">
+              {isUserRecruiter 
+                ? "Bekijk en beheer al je geplande afspraken" 
+                : "Bekijk je geplande afspraken"}
+            </p>
           </div>
         </div>
       </div>
