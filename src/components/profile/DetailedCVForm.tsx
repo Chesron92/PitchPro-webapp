@@ -9,7 +9,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { format, isValid, parse, parseISO } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
 import { nl } from 'date-fns/locale';
 import './datepicker-custom.css';
 
