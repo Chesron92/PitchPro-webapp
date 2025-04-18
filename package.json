@@ -7,7 +7,7 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "vercel-build": "craco build && cp public/error-handler.js build/",
+    "vercel-build": "craco build && cp error-handler.js build/ && cp -r public/* build/",
     "test": "craco test",
     "eject": "react-scripts eject"
   },
