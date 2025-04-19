@@ -32,7 +32,7 @@ PitchPro is een modern recruitment platform dat werkzoekenden en recruiters met 
    # Installeer dependencies
    npm install
    
-   # Start ontwikkelingsserver
+   # Start ontwikkelingsserver.
    npm start
    ```
 
