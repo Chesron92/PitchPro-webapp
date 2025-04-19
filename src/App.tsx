@@ -320,6 +320,8 @@ const App: React.FC = () => {
                 <Route path="/candidate/:id" element={<CandidateProfile />} />
                 <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
                 <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/agenda" element={<Calendar />} />
               </Route>
 
               {/* Shared routes (accessible to both job seekers and recruiters) */}
@@ -327,7 +329,6 @@ const App: React.FC = () => {
               <Route path="/messages/:conversationId" element={<Conversation />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/calendar" element={<Calendar />} />
               <Route path="/job/:id" element={<JobDetail />} />
               <Route path="/application/:id" element={<ApplicationDetail />} />
 

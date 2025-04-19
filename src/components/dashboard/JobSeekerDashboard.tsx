@@ -27,6 +27,13 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState<boolean>(true);
 
+  // Functie volledig verwijderd - werkzoekenden kunnen deze actie niet uitvoeren
+  // Zelfs als deze functie ergens anders wordt aangeroepen, doet hij niets voor werkzoekenden
+  const handleAddAppointment = () => {
+    // Deze functie doet niets voor werkzoekenden - afspraken kunnen alleen door recruiters gemaakt worden
+    return;
+  };
+
   const handleRemoveFavorite = async (jobId: string) => {
     try {
       await removeFavorite(jobId);
@@ -301,10 +308,17 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
           <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-lg">Mijn Agenda</h3>
+              {/* Geen knop voor werkzoekenden */}
             </div>
             
             <div className="space-y-3">
               <p className="text-gray-500 text-sm italic">Je hebt geen geplande sollicitatiegesprekken of afspraken.</p>
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
+                <p className="text-sm text-blue-700">
+                  <span className="font-medium">Info:</span> Als werkzoekende kun je alleen afspraken ontvangen van recruiters. 
+                  Je kunt zelf geen afspraken plannen.
+                </p>
+              </div>
               
               <div className="hidden">
                 {/* Dit blok wordt zichtbaar wanneer er afspraken zijn */}
@@ -338,15 +352,7 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
                   </div>
                 </div>
               </div>
-              
-              <div className="flex justify-center mt-4">
-                <a 
-                  href="/jobs" 
-                  className="inline-block text-primary-600 hover:text-primary-800 font-medium"
-                >
-                  Vind interessante vacatures
-                </a>
-              </div>
+
             </div>
           </div>
         </div>

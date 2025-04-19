@@ -709,12 +709,12 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
               )}
               
               <div className="flex justify-center mt-4">
-                <a 
-                  href="/agenda" 
+                <Link 
+                  to="/agenda" 
                   className="inline-block text-primary-600 hover:text-primary-800 font-medium"
                 >
                   Beheer je agenda
-                </a>
+                </Link>
               </div>
             </div>
           </div>

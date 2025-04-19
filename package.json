@@ -1,11 +1,14 @@
 {
   "name": "pitchpro",
   "version": "1.0.0",
+  "private": true,
   "description": "Een recruitment platform dat kandidaten en recruiters verbindt",
   "main": "index.js",
+  "homepage": ".",
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "vercel-build": "craco build && cp error-handler.js build/ && cp -r public/* build/",
     "test": "craco test",
     "eject": "react-scripts eject"
   },
