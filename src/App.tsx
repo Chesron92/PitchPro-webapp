@@ -21,6 +21,7 @@ const Jobs = lazy(() => import('./pages/Jobs'));
 const JobDetail = lazy(() => import('./pages/JobDetail'));
 const JobApplicationForm = lazy(() => import('./pages/JobApplication'));
 const Messages = lazy(() => import('./pages/Messages'));
+const Conversation = lazy(() => import('./pages/Conversation'));
 const CVPreview = lazy(() => import('./pages/CVPreview'));
 const CreateJob = lazy(() => import('./pages/CreateJob'));
 const EditJob = lazy(() => import('./pages/EditJob'));
@@ -43,7 +44,6 @@ import './styles/globals.css';
 // Placeholder componenten voor ontbrekende pagina's (deze zijn klein genoeg om niet lazy te laden)
 const Applications = () => <div className="p-4"><h1 className="text-2xl font-bold">Applications</h1><p>Applications page</p></div>;
 const SearchJobs = () => <div className="p-4"><h1 className="text-2xl font-bold">Search Jobs</h1><p>Search jobs page</p></div>;
-const Conversation = () => <div className="p-4"><h1 className="text-2xl font-bold">Conversation</h1><p>Conversation page</p></div>;
 const Settings = () => <div className="p-4"><h1 className="text-2xl font-bold">Settings</h1><p>Settings page</p></div>;
 
 // Loading component voor Suspense fallback
