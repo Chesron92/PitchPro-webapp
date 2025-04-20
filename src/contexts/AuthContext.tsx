@@ -1,15 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  sendPasswordResetEmail,
-  onAuthStateChanged,
   User as FirebaseUser,
-  updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
 import { 
   User, 
   UserRole, 
@@ -21,6 +13,12 @@ import {
   isRecruiter,
   UserProfile
 } from '../types/user';
+import { 
+  getFirebaseAuth, 
+  getFirestore as getFirestoreDB,
+  auth as authInstance,
+  db as dbInstance
+} from '../firebase/config';
 
 export interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -149,6 +147,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     role: UserRole
   ): Promise<BaseUser> => {
     console.log("Nieuw gebruikersprofiel aanmaken voor", userId);
+    
+    // Lazy-load Firestore
+    const db = dbInstance || await getFirestoreDB();
+    const { doc, setDoc } = await import('firebase/firestore');
+    
     const userDocRef = doc(db, 'users', userId);
     
     const baseUserData: BaseUser = {
@@ -203,6 +206,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Register function updated to use the common profile creation
   const register = async (email: string, password: string, displayName: string, role: UserRole) => {
     try {
+      // Lazy-load Firebase auth
+      const auth = authInstance || await getFirebaseAuth();
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      
       // Maak een gebruiker aan met Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -223,6 +230,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       console.log('Inlogpoging voor:', email);
+      
+      // Lazy-load Firebase auth
+      const auth = authInstance || await getFirebaseAuth();
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      
       await signInWithEmailAndPassword(auth, email, password);
       console.log('Inloggen succesvol');
     } catch (error: any) {
@@ -236,6 +248,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout
   const logout = async () => {
     try {
+      // Lazy-load Firebase auth
+      const auth = authInstance || await getFirebaseAuth();
+      const { signOut } = await import('firebase/auth');
+      
       await signOut(auth);
     } catch (error) {
       console.error('Fout bij uitloggen:', error);
@@ -246,6 +262,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Reset password
   const resetPassword = async (email: string) => {
     try {
+      // Lazy-load Firebase auth
+      const auth = authInstance || await getFirebaseAuth();
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      
       await sendPasswordResetEmail(auth, email);
     } catch (error) {
       console.error('Fout bij wachtwoord reset:', error);
@@ -257,6 +277,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loadUserProfile = async (userId: string) => {
     try {
       console.log("Bezig met laden van gebruikersprofiel voor", userId);
+      
+      // Lazy-load Firestore
+      const db = dbInstance || await getFirestoreDB();
+      const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+      
       const userDocRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userDocRef);
       
@@ -392,62 +417,81 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setAuthError(new Error("Het profiel kon niet tijdig worden geladen. Probeer het opnieuw."));
     }, 15000);
     
-    try {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        try {
-          console.log("Auth state verandering gedetecteerd:", user ? "Gebruiker aanwezig" : "Geen gebruiker");
-          setCurrentUser(user);
-          
-          if (user) {
-            try {
-              await loadUserProfile(user.uid);
-            } catch (error) {
-              console.error("Fout bij laden gebruikersprofiel:", error);
-              // Zet loading op false, zelfs als er een fout is
-              setUserProfile(null);
-              if (error instanceof Error) {
-                setAuthError(error);
-              } else {
-                setAuthError(new Error("Onbekende fout bij laden gebruikersprofiel"));
+    const initAuth = async () => {
+      try {
+        // Lazy-load Firebase auth
+        const auth = authInstance || await getFirebaseAuth();
+        const { onAuthStateChanged } = await import('firebase/auth');
+        
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+          try {
+            console.log("Auth state verandering gedetecteerd:", user ? "Gebruiker aanwezig" : "Geen gebruiker");
+            setCurrentUser(user);
+            
+            if (user) {
+              try {
+                await loadUserProfile(user.uid);
+              } catch (error) {
+                console.error("Fout bij laden gebruikersprofiel:", error);
+                // Zet loading op false, zelfs als er een fout is
+                setUserProfile(null);
+                if (error instanceof Error) {
+                  setAuthError(error);
+                } else {
+                  setAuthError(new Error("Onbekende fout bij laden gebruikersprofiel"));
+                }
               }
+            } else {
+              setUserProfile(null);
             }
-          } else {
-            setUserProfile(null);
+            
+            console.log("Loading status wordt op false gezet");
+            setLoading(false);
+            // Annuleer de timer omdat we nu klaar zijn met laden
+            clearTimeout(safetyTimer);
+          } catch (error) {
+            console.error("Onverwachte fout in auth state verandering handler:", error);
+            setLoading(false);
+            clearTimeout(safetyTimer);
+            if (error instanceof Error) {
+              setAuthError(error);
+            } else {
+              setAuthError(new Error("Onverwachte fout in auth state verandering handler"));
+            }
           }
-          
-          console.log("Loading status wordt op false gezet");
-          setLoading(false);
-          // Annuleer de timer omdat we nu klaar zijn met laden
+        });
+    
+        return () => {
+          unsubscribe();
           clearTimeout(safetyTimer);
-        } catch (error) {
-          console.error("Onverwachte fout in auth state verandering handler:", error);
-          setLoading(false);
-          clearTimeout(safetyTimer);
-          if (error instanceof Error) {
-            setAuthError(error);
-          } else {
-            setAuthError(new Error("Onverwachte fout in auth state verandering handler"));
-          }
-        }
-      });
-  
-      return () => {
-        unsubscribe();
+        };
+      } catch (error) {
+        console.error("Kritieke fout bij initialiseren Firebase Auth:", error);
+        setLoading(false);
         clearTimeout(safetyTimer);
-      };
-    } catch (error) {
-      console.error("Kritieke fout bij initialiseren Firebase Auth:", error);
-      setLoading(false);
-      clearTimeout(safetyTimer);
-      if (error instanceof Error) {
-        setAuthError(error);
-      } else {
-        setAuthError(new Error("Kritieke fout bij initialiseren Firebase Auth"));
+        if (error instanceof Error) {
+          setAuthError(error);
+        } else {
+          setAuthError(new Error("Kritieke fout bij initialiseren Firebase Auth"));
+        }
+        
+        // Return lege cleanup functie
+        return () => {};
       }
-      
-      // Return lege cleanup functie
-      return () => {};
-    }
+    };
+    
+    // Start the auth initialization
+    const cleanup = initAuth();
+    
+    // Return the cleanup function
+    return () => {
+      if (cleanup && typeof cleanup.then === 'function') {
+        cleanup.then(cleanupFn => {
+          if (cleanupFn) cleanupFn();
+        });
+      }
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   console.log("AuthProvider rendering met loading status:", loading, "authError:", authError ? "JA" : "NEE");

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { JobSeeker, BaseUser } from '../../types/user';
 import { useFavorites } from '../../contexts/FavoritesContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface JobSeekerDashboardProps {
   user: BaseUser;
@@ -174,13 +175,13 @@ const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ user }) => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {/* Header met welkomstbericht */}
         <div className="p-6 bg-gradient-to-r from-primary-700 to-primary-900 text-white">
           <h1 className="text-3xl font-bold">Welkom, {user.displayName || 'Werkzoekende'}</h1>
           <p className="mt-2 text-primary-100">
-            Beheer je profiel en sollicitaties vanaf je persoonlijke dashboard
+            Vind je droombaan en beheer je sollicitaties op één plek
           </p>
         </div>
         

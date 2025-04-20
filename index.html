@@ -12,37 +12,29 @@
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>PitchPro</title>
-    <!-- Voeg een opvallende opmerking toe voor debugging -->
-    <!-- DEBUG: React app zou moeten renderen in het root element -->
-    <style>
-      /* Noodstijlen als CSS niet laadt */
-      #root-error {
-        display: none;
-        font-family: Arial, sans-serif;
-        color: #d00;
-        padding: 20px;
-        text-align: center;
-      }
-    </style>
-    <!-- Error handler script om problemen te detecteren -->
-    <script src="/error-handler.js"></script>
+    <!-- Process polyfill script moet als eerste worden geladen -->
+    <script>
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      window.process.env.NODE_ENV = window.process.env.NODE_ENV || 'development';
+      
+      // Firebase configuratie waarden
+      window.process.env.REACT_APP_FIREBASE_API_KEY = 'AIzaSyAiTY14VexbFUQTf3yKhDPhrCtKjRzhMwQ';
+      window.process.env.REACT_APP_FIREBASE_AUTH_DOMAIN = 'pitchpro-29e90.firebaseapp.com';
+      window.process.env.REACT_APP_FIREBASE_PROJECT_ID = 'pitchpro-29e90';
+      window.process.env.REACT_APP_FIREBASE_STORAGE_BUCKET = 'pitchpro-29e90.firebasestorage.app';
+      window.process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID = '121788535713';
+      window.process.env.REACT_APP_FIREBASE_APP_ID = '1:121788535713:web:9c5ddf4ff9af0a0e2ff1e0';
+      window.process.env.REACT_APP_FIREBASE_MEASUREMENT_ID = 'G-QGBR93ZYCM';
+      
+      console.log('Process polyfill geladen in HTML', window.process.env.NODE_ENV);
+    </script>
+    <!-- Vite injecteert head scripts hier -->
   </head>
   <body>
     <noscript>Je moet JavaScript inschakelen om deze app te gebruiken.</noscript>
     <div id="root"></div>
-    <div id="root-error">
-      Als je deze tekst ziet en niet de app, is er een probleem met het renderen.
-      Controleer de JavaScript console voor fouten.
-    </div>
-    
-    <script>
-      // Eenvoudige timeout om te controleren of de app laadt
-      setTimeout(function() {
-        if (document.getElementById('root').children.length === 0) {
-          document.getElementById('root-error').style.display = 'block';
-        }
-      }, 3000);
-    </script>
-    <!-- React bundels worden automatisch toegevoegd door Create React App build proces -->
+    <script type="module" src="/src/main.jsx"></script>
+    <!-- Vite injecteert body scripts hier -->
   </body>
 </html> 

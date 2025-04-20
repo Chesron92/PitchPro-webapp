@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const MinimalApp: React.FC = () => {
+const MinimalApp = () => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

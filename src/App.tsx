@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
@@ -8,46 +8,51 @@ import { FavoritesProvider } from './contexts/FavoritesContext';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase/config';
 
-// Pagina's
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ResetPassword from './pages/ResetPassword';
-import ProfileRepair from './components/ProfileRepair';
-import ProfilePage from './pages/ProfilePage';
-import Landing from './pages/Landing';
-import About from './pages/About';
-import Candidates from './pages/Candidates';
-import CandidateProfile from './pages/CandidateProfile';
-import Jobs from './pages/Jobs';
-import JobDetail from './pages/JobDetail';
-import JobApplicationForm from './pages/JobApplication';
-import Messages from './pages/Messages';
-import CVPreview from './pages/CVPreview';
-import CreateJob from './pages/CreateJob';
-import EditJob from './pages/EditJob';
-import ScheduleMeeting from './pages/ScheduleMeeting';
-import Calendar from './pages/Calendar';
-import ApplicationDetail from './pages/ApplicationDetail';
+// Lazy loaded pagina's
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const Landing = lazy(() => import('./pages/Landing'));
+const About = lazy(() => import('./pages/About'));
+const Candidates = lazy(() => import('./pages/Candidates'));
+const CandidateProfile = lazy(() => import('./pages/CandidateProfile'));
+const Jobs = lazy(() => import('./pages/Jobs'));
+const JobDetail = lazy(() => import('./pages/JobDetail'));
+const JobApplicationForm = lazy(() => import('./pages/JobApplication'));
+const Messages = lazy(() => import('./pages/Messages'));
+const CVPreview = lazy(() => import('./pages/CVPreview'));
+const CreateJob = lazy(() => import('./pages/CreateJob'));
+const EditJob = lazy(() => import('./pages/EditJob'));
+const ScheduleMeeting = lazy(() => import('./pages/ScheduleMeeting'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const ApplicationDetail = lazy(() => import('./pages/ApplicationDetail'));
 
-// Voeg de ontbrekende componenten toe
-// Deze imports toevoegen:
-// Placeholder componenten voor ontbrekende pagina's
+// Dashboard routes (lazy loaded)
+const DashboardRoutes = lazy(() => import('./routes/dashboardRoutes'));
+
+// Kleinere componenten die direct geladen kunnen worden
+import ProfileRepair from './components/ProfileRepair';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import PublicRoute from './components/common/PublicRoute';
+
+// Stijlen
+import './styles/globals.css';
+
+// Placeholder componenten voor ontbrekende pagina's (deze zijn klein genoeg om niet lazy te laden)
 const Applications = () => <div className="p-4"><h1 className="text-2xl font-bold">Applications</h1><p>Applications page</p></div>;
 const SearchJobs = () => <div className="p-4"><h1 className="text-2xl font-bold">Search Jobs</h1><p>Search jobs page</p></div>;
 const Conversation = () => <div className="p-4"><h1 className="text-2xl font-bold">Conversation</h1><p>Conversation page</p></div>;
 const Settings = () => <div className="p-4"><h1 className="text-2xl font-bold">Settings</h1><p>Settings page</p></div>;
 
-// Dashboard componenten
-import JobSeekerDashboard from './components/dashboard/JobSeekerDashboard';
-import RecruiterDashboard from './components/dashboard/RecruiterDashboard';
-
-// Routes en Layout
-import ProtectedRoute from './components/common/ProtectedRoute';
-import PublicRoute from './components/common/PublicRoute';
-import Layout from './components/Layout';
-
-// Stijlen
-import './styles/globals.css';
+// Loading component voor Suspense fallback
+const Loading = () => (
+  <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+    <div className="ml-4">Bezig met laden...</div>
+  </div>
+);
 
 // Vereenvoudigde dashboard componenten voor debugging
 const SimpleDashboard: React.FC = () => {
@@ -56,46 +61,6 @@ const SimpleDashboard: React.FC = () => {
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
       <p>Als je dit kunt zien, werkt de rendering correct.</p>
-    </div>
-  );
-};
-
-// Algemeen dashboard dat doorverwijst naar de juiste rol-specifieke dashboard
-const Dashboard: React.FC = () => {
-  const { userProfile, currentUser } = useAuth();
-  
-  console.log('Dashboard component rendering met:', { 
-    currentUser: currentUser?.uid, 
-    userProfile: userProfile?.role,
-    displayName: userProfile?.displayName
-  });
-  
-  // Controleer eerst of we een ingelogde gebruiker hebben maar geen profiel
-  if (currentUser && !userProfile) {
-    console.log('Gebruiker ingelogd maar geen profiel gevonden');
-    return (
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-4">Probleem met gebruikersprofiel</h1>
-        <p className="mb-4">Je bent wel ingelogd, maar je gebruikersprofiel kon niet worden geladen.</p>
-        <ProfileRecoveryComponent />
-      </div>
-    );
-  }
-  
-  // Als er een profiel is, verwijs door naar de juiste pagina
-  if (userProfile?.role === 'werkzoekende') {
-    console.log('Werkzoekende dashboard wordt geladen');
-    return <JobSeekerDashboard user={userProfile} />;
-  } else if (userProfile?.role === 'recruiter') {
-    console.log('Recruiter dashboard wordt geladen', userProfile);
-    return <RecruiterDashboard user={userProfile} />;
-  }
-  
-  // Als er geen profiel is, toon een laadscherm (fallback)
-  console.log('Geen profiel gevonden, laadscherm wordt getoond');
-  return (
-    <div className="flex justify-center items-center h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
     </div>
   );
 };
@@ -244,12 +209,7 @@ const Redirect: React.FC = () => {
   
   // Als het nog aan het laden is, toon laadscherm
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-600"></div>
-        <div className="ml-4">Bezig met laden...</div>
-      </div>
-    );
+    return <Loading />;
   }
   
   // Na laden: redirect naar dashboard als ingelogd, of naar login als niet ingelogd
@@ -265,8 +225,19 @@ const ProtectedContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
-  console.log("App component rendering");
+// AboutWrapper component zonder authenticatie vereisten maar met toegang tot AuthContext
+const AboutWrapper: React.FC = () => {
+  return (
+    <Suspense fallback={<Loading />}>
+      <About />
+    </Suspense>
+  );
+};
+
+// De AppContent component (intern, heeft toegang tot AuthContext)
+const AppContent: React.FC = () => {
+  console.log("AppContent component rendering");
+  const { userProfile, currentUser } = useAuth();
   
   // Configureer globale error handler om kritieke fouten af te vangen
   useEffect(() => {
@@ -282,91 +253,87 @@ const App: React.FC = () => {
   }, []);
   
   return (
+    <Router basename="/">
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          {/* Openbare routes */}
+          <Route path="/" element={<Landing />} />
+          
+          {/* Publieke routes met PublicRoute bescherming */}
+          <Route element={<PublicRoute />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Route>
+          
+          {/* About route */}
+          <Route path="/about" element={<About />} />
+          
+          {/* Vacatures routes */}
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/job/:jobId" element={<JobDetail />} />
+          
+          {/* Beschermde applicatie routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/job-application/:jobId" element={<JobApplicationForm />} />
+          </Route>
+          
+          {/* Job applicant routes */}
+          <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
+            <Route path="/applications" element={<Applications />} />
+            <Route path="/search-jobs" element={<SearchJobs />} />
+          </Route>
+
+          {/* Recruiter specific routes */}
+          <Route element={<ProtectedRoute requiredRole="recruiter" />}>
+            <Route path="/candidates" element={<Candidates />} />
+            <Route path="/candidate/:id" element={<CandidateProfile />} />
+            <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
+            <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
+          </Route>
+
+          {/* Shared routes (accessible to both job seekers and recruiters) */}
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:conversationId" element={<Conversation />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/job/:id" element={<JobDetail />} />
+          <Route path="/application/:id" element={<ApplicationDetail />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/agenda" element={<Calendar />} />
+
+          {/* Redirect route (voor directe doorverwijzing naar dashboard/login) */}
+          <Route path="/redirect" element={<Redirect />} />
+          
+          {/* Fallback route voor debugging */}
+          <Route path="/simple" element={<SimpleDashboard />} />
+          
+          {/* Dashboard routes - nu lazy loaded met separate bundle */}
+          <Route path="/dashboard/*" element={
+            <Suspense fallback={<Loading />}>
+              <DashboardRoutes userProfile={userProfile} currentUser={currentUser} />
+            </Suspense>
+          } />
+          
+          {/* Redirect onbekende routes naar home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+      
+      {/* Debug overlay */}
+      <AuthDebugger />
+    </Router>
+  );
+};
+
+// De hoofdcomponent die de providers opzet (extern, heeft GEEN toegang tot AuthContext)
+const App: React.FC = () => {
+  console.log("App component rendering");
+  
+  return (
     <AuthProvider>
       <MessageProvider>
         <FavoritesProvider>
-          <Router basename="/">
-            <Routes>
-              {/* Openbare routes */}
-              <Route path="/" element={<Landing />} />
-              
-              {/* Publieke routes met PublicRoute bescherming */}
-              <Route element={<PublicRoute />}>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-              </Route>
-              
-              <Route path="/about" element={<About />} />
-              
-              {/* Vacatures routes */}
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/job/:jobId" element={<JobDetail />} />
-              
-              {/* Beschermde applicatie routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/job-application/:jobId" element={<JobApplicationForm />} />
-              </Route>
-              
-              {/* Job applicant routes */}
-              <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
-                <Route path="/applications" element={<Applications />} />
-                <Route path="/search-jobs" element={<SearchJobs />} />
-              </Route>
-
-              {/* Recruiter specific routes */}
-              <Route element={<ProtectedRoute requiredRole="recruiter" />}>
-                <Route path="/candidates" element={<Candidates />} />
-                <Route path="/candidate/:id" element={<CandidateProfile />} />
-                <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
-                <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
-                <Route path="/calendar" element={<Calendar />} />
-                <Route path="/agenda" element={<Calendar />} />
-              </Route>
-
-              {/* Shared routes (accessible to both job seekers and recruiters) */}
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:conversationId" element={<Conversation />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/job/:id" element={<JobDetail />} />
-              <Route path="/application/:id" element={<ApplicationDetail />} />
-
-              {/* Redirect route (voor directe doorverwijzing naar dashboard/login) */}
-              <Route path="/redirect" element={<Redirect />} />
-              
-              {/* Fallback route voor debugging */}
-              <Route path="/simple" element={<SimpleDashboard />} />
-              
-              {/* Beveiligde routes met Layout */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<ProtectedContent />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  
-                  {/* Profiel routes met onze nieuwe ProfilePage component */}
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/profile/:type" element={<ProfilePage />} />
-                  <Route path="/profile/jobseeker" element={<ProfilePage />} />
-                  <Route path="/profile/recruiter" element={<ProfilePage />} />
-                  
-                  {/* CV Preview pagina */}
-                  <Route path="/cv-preview" element={<CVPreview />} />
-                  
-                  {/* Vacature maken/bewerken pagina - alleen voor recruiters */}
-                  <Route element={<ProtectedRoute requiredRole="recruiter" />}>
-                    <Route path="/create-job" element={<CreateJob />} />
-                    <Route path="/edit-job/:jobId" element={<EditJob />} />
-                  </Route>
-                </Route>
-              </Route>
-              
-              {/* Redirect onbekende routes naar home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            
-            {/* Debug overlay */}
-            <AuthDebugger />
-          </Router>
+          <AppContent />
         </FavoritesProvider>
       </MessageProvider>
     </AuthProvider>

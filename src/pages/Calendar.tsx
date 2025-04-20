@@ -231,6 +231,7 @@ const Calendar: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Pagina header */}
+      <Header />
       <div className="w-full bg-gradient-to-r from-primary-600 to-primary-800 text-white py-24">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
@@ -238,7 +239,7 @@ const Calendar: React.FC = () => {
             <p className="text-lg opacity-90">
               {isUserRecruiter 
                 ? "Bekijk en beheer al je geplande afspraken" 
-                : "Bekijk je geplande afspraken"}
+                : "Bekijk je geplande afspraken en gesprekken"}
             </p>
           </div>
         </div>

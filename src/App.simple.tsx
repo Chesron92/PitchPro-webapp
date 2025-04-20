@@ -1,11 +1,14 @@
 import React from 'react';
 
-const App: React.FC = () => {
+function App() {
   return (
-    <div>
-      <h1>Hello World!</h1>
+    <div className="App">
+      <header className="App-header">
+        <h1>Hallo Wereld! Dit is PitchPro.</h1>
+        <p>Als je dit kunt zien, werkt de app.</p>
+      </header>
     </div>
   );
-};
+}
 
 export default App; 
