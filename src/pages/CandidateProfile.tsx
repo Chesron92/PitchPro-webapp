@@ -76,6 +76,7 @@ interface CandidateData {
     cv?: string;
     profilePhoto?: string;
     isAvailableForWork?: boolean;
+    pitchVideo?: string; // URL naar de persoonlijke video pitch
   };
   experience?: string;
   skills?: string[];
@@ -93,6 +94,8 @@ interface CandidateData {
   photoURL?: string;
   // Ook beschikbaar op het root niveau
   isAvailableForWork?: boolean;
+  // Video pitch
+  pitchVideo?: string; // URL naar de persoonlijke video pitch
   // CV gegevens
   cv?: CV;
 }
@@ -477,6 +480,25 @@ const CandidateProfile: React.FC = () => {
                     </p>
                   </section>
                   
+                  {/* Video Pitch sectie */}
+                  <section className="mb-8">
+                    <h2 className="text-2xl font-semibold mb-4 text-gray-800">Video Pitch</h2>
+                    {candidate.pitchVideo || candidate.profile?.pitchVideo ? (
+                      <div className="aspect-video rounded-lg overflow-hidden shadow-md">
+                        <video 
+                          controls
+                          className="w-full h-full"
+                          poster="/images/video-thumbnail.jpg"
+                        >
+                          <source src={candidate.pitchVideo || candidate.profile?.pitchVideo} type="video/mp4" />
+                          Uw browser ondersteunt geen video weergave.
+                        </video>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 italic">Deze kandidaat heeft nog geen video pitch toegevoegd.</p>
+                    )}
+                  </section>
+                  
                   <section className="mb-8">
                     <h2 className="text-2xl font-semibold mb-4 text-gray-800">Vaardigheden</h2>
                     {skills.length > 0 ? (
@@ -551,6 +573,18 @@ const CandidateProfile: React.FC = () => {
             // CV tabblad
             <div className="p-8">
               <div className="max-w-4xl mx-auto">
+                {/* Over Mij sectie */}
+                <section className="mb-12">
+                  <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Over Mij</h2>
+                  {aboutMe ? (
+                    <div className="bg-white rounded-md shadow-sm p-6 border border-gray-100">
+                      <p className="text-gray-700 whitespace-pre-line">{aboutMe}</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 italic">Geen persoonlijke informatie toegevoegd</p>
+                  )}
+                </section>
+                
                 {/* Werkervaring sectie */}
                 <section className="mb-12">
                   <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Werkervaring</h2>
@@ -647,6 +681,54 @@ const CandidateProfile: React.FC = () => {
                     </div>
                   </section>
                 )}
+                
+                {/* Vaardigheden sectie */}
+                <section className="mb-12">
+                  <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Vaardigheden</h2>
+                  
+                  {skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {skills.map((skill, index) => (
+                        <span 
+                          key={index} 
+                          className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 italic">Geen vaardigheden opgegeven</p>
+                  )}
+                </section>
+                
+                {/* Contactgegevens sectie */}
+                <section className="mb-12">
+                  <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Contactgegevens</h2>
+                  
+                  <div className="bg-white rounded-md shadow-sm p-6 border border-gray-100">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Locatie</h3>
+                        <p className="mt-1 text-gray-800">{location}</p>
+                      </div>
+                      
+                      {candidate.email && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">E-mail</h3>
+                          <p className="mt-1 text-gray-800">{candidate.email}</p>
+                        </div>
+                      )}
+                      
+                      {candidate.phoneNumber && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">Telefoonnummer</h3>
+                          <p className="mt-1 text-gray-800">{candidate.phoneNumber}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
                 
                 {/* Actie knoppen onderaan CV */}
                 <div className="flex flex-col sm:flex-row gap-4 mt-8">
