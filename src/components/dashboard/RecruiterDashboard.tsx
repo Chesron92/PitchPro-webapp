@@ -4,8 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
-import Header from '../common/Header';
-import Footer from '../common/Footer';
 
 interface Job {
   id: string;
@@ -402,7 +400,6 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
       
       <div className="max-w-6xl mx-auto px-4 py-20">
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -726,7 +723,6 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
         </div>
       </div>
       
-      <Footer />
     </div>
   );
 };

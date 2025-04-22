@@ -1,24 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  User as FirebaseUser,
+  getAuth, 
+  onAuthStateChanged,
+  signOut,
+  // Eventuele andere benodigde imports
 } from 'firebase/auth';
-import { 
-  User, 
-  UserRole, 
-  BaseUser, 
-  JobSeeker, 
-  Recruiter, 
-  getUserRole,
-  isJobSeeker,
-  isRecruiter,
-  UserProfile
-} from '../types/user';
-import { 
-  getFirebaseAuth, 
-  getFirestore as getFirestoreDB,
-  auth as authInstance,
-  db as dbInstance
-} from '../firebase/config';
+import { BaseUser } from '../types/user';
+// Verwijder ongebruikte importtypen zoals User, JobSeeker, Recruiter, UserProfile
+
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 export interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -149,7 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log("Nieuw gebruikersprofiel aanmaken voor", userId);
     
     // Lazy-load Firestore
-    const db = dbInstance || await getFirestoreDB();
+    const db = db || await getFirestoreDB();
     const { doc, setDoc } = await import('firebase/firestore');
     
     const userDocRef = doc(db, 'users', userId);

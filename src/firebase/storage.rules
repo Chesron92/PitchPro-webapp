@@ -1,0 +1,85 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functies
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isRecruiter() {
+      return isAuthenticated() && 
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType.lower() == "recruiter" ||
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "recruiter");
+    }
+    
+    function isJobseeker() {
+      return isAuthenticated() && 
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.userType.lower() == "jobseeker" ||
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "werkzoekende" ||
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "jobseeker");
+    }
+    
+    // NIEUW: Video pitch bestanden
+    match /pitch-videos/{userId}/{fileName} {
+      // Iedereen kan video's zien
+      allow read: if isAuthenticated();
+      // Alleen de eigenaar kan zijn video uploaden/wijzigen
+      allow write: if isOwner(userId);
+    }
+    
+    // NIEUW: Profielfoto's - het pad dat in de foutmelding zit
+    match /profile-photos/{userId}/{fileName} {
+      // Iedereen kan profielfoto's zien
+      allow read: if isAuthenticated();
+      // Alleen de eigenaar kan zijn profielfoto uploaden/wijzigen
+      allow write: if isOwner(userId);
+    }
+    
+    // Profielfoto's - oude pad (voor backward compatibility)
+    match /profile_images/{userId}/{fileName} {
+      // Iedereen kan profielfoto's zien
+      allow read: if isAuthenticated();
+      // Alleen de eigenaar kan zijn profielfoto uploaden/wijzigen
+      allow write: if isOwner(userId);
+    }
+    
+    // Profielfoto's - nieuwe pad dat overeenkomt met de StorageService code
+    match /profileImages/{userId} {
+      // Iedereen kan profielfoto's zien
+      allow read: if isAuthenticated();
+      // Alleen de eigenaar kan zijn profielfoto uploaden/wijzigen
+      allow write, delete: if isOwner(request.auth.uid);
+    }
+    
+    // CV documenten
+    match /cv-documents/{userId}/{fileName} {
+      // Iedereen kan CV's zien
+      allow read: if isAuthenticated();
+      // Alleen de eigenaar kan zijn CV uploaden/wijzigen
+      allow write: if isOwner(userId);
+    }
+    
+    // Sollicitatie documenten
+    match /sollicitaties/{userId}/{fileName} {
+      // Werkzoekenden kunnen hun eigen documenten uploaden en lezen
+      allow read: if isOwner(userId);
+      allow create: if isJobseeker() && userId == request.auth.uid;
+      
+      // Recruiters kunnen sollicitatie documenten zien voor hun eigen vacatures
+      allow read: if isRecruiter() && 
+        exists(/databases/(default)/documents/sollicitaties/$(resource.name.split('/')[2])) &&
+        firestore.get(/databases/(default)/documents/vacatures/$(
+          firestore.get(/databases/(default)/documents/sollicitaties/$(resource.name.split('/')[2])).data.vacatureId
+        )).data.recruiterId == request.auth.uid;
+    }
+    
+    // Standaard regel - blokkeer toegang tot alle andere paden voor veiligheid
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 

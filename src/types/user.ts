@@ -84,6 +84,7 @@ export interface JobSeekerProfile extends UserProfile {
   portfolio?: string;
   coverLetter?: string;
   isAvailableForWork?: boolean;
+  pitchVideo?: string; // URL naar de persoonlijke video pitch
 }
 
 export interface RecruiterProfile extends UserProfile {

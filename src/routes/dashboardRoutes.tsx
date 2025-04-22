@@ -1,103 +1,65 @@
 import React, { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/common/ProtectedRoute';
-import Layout from '../components/Layout';
+import UserProfile from '../types/UserProfile';
+import { User } from 'firebase/auth';
 
-// Loading component
-const Loading = () => (
+// Dashboard Componenten
+const RecruiterDashboard = lazy(() => import('../components/dashboard/RecruiterDashboard'));
+const JobSeekerDashboard = lazy(() => import('../components/dashboard/JobSeekerDashboard'));
+const ProfilePage = lazy(() => import('../pages/Profile'));
+const CVPreview = lazy(() => import('../pages/CVPreview'));
+const CreateJob = lazy(() => import('../pages/CreateJob'));
+const EditJob = lazy(() => import('../pages/EditJob'));
+const ApplicationsList = lazy(() => import('../pages/ApplicationsList'));
+const FavoritesPage = lazy(() => import('../pages/Favorites'));
+
+// Loading-component voor Suspense fallback
+const DashboardLoading = () => (
   <div className="flex justify-center items-center h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
     <div className="ml-4">Dashboard laden...</div>
   </div>
 );
 
-// Lazy loaded dashboard components
-const JobSeekerDashboard = lazy(() => import('../components/dashboard/JobSeekerDashboard'));
-const RecruiterDashboard = lazy(() => import('../components/dashboard/RecruiterDashboard'));
-const ProfilePage = lazy(() => import('../pages/ProfilePage'));
-const CVPreview = lazy(() => import('../pages/CVPreview'));
-const CreateJob = lazy(() => import('../pages/CreateJob'));
-const EditJob = lazy(() => import('../pages/EditJob'));
+interface DashboardRoutesProps {
+  userProfile: UserProfile | null;
+  currentUser: User | null;
+}
 
-// Dashboard component
-const Dashboard = ({ userProfile, currentUser }: any) => {
-  console.log('Dashboard component rendering met:', { 
-    currentUser: currentUser?.uid, 
-    userProfile: userProfile?.role,
-    displayName: userProfile?.displayName
-  });
+const DashboardRoutes: React.FC<DashboardRoutesProps> = ({ userProfile, currentUser }) => {
+  console.log("DashboardRoutes rendering with userProfile:", userProfile?.role);
   
-  // Controleer eerst of we een ingelogde gebruiker hebben maar geen profiel
-  if (currentUser && !userProfile) {
-    console.log('Gebruiker ingelogd maar geen profiel gevonden');
-    return (
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-4">Probleem met gebruikersprofiel</h1>
-        <p className="mb-4">Je bent wel ingelogd, maar je gebruikersprofiel kon niet worden geladen.</p>
-        {/* Here you would render ProfileRecoveryComponent, but we're keeping it in App.tsx for simplicity */}
-        <Navigate to="/profile" replace />
-      </div>
-    );
+  if (!userProfile || !currentUser) {
+    return <Navigate to="/login" />;
   }
   
-  // Als er een profiel is, verwijs door naar de juiste pagina
-  if (userProfile?.role === 'werkzoekende') {
-    console.log('Werkzoekende dashboard wordt geladen');
-    return (
-      <Suspense fallback={<Loading />}>
-        <JobSeekerDashboard user={userProfile} />
-      </Suspense>
-    );
-  } else if (userProfile?.role === 'recruiter') {
-    console.log('Recruiter dashboard wordt geladen', userProfile);
-    return (
-      <Suspense fallback={<Loading />}>
-        <RecruiterDashboard user={userProfile} />
-      </Suspense>
-    );
-  }
-  
-  // Als er geen profiel is, toon een laadscherm (fallback)
-  console.log('Geen profiel gevonden, laadscherm wordt getoond');
-  return <Loading />;
-};
-
-// Protected Content wrapper
-const ProtectedContent = () => {
   return (
-    <Layout>
-      <Outlet />
-    </Layout>
-  );
-};
-
-// Dashboard Routes
-const DashboardRoutes = ({ userProfile, currentUser }: any) => {
-  return (
-    <Suspense fallback={<Loading />}>
+    <Suspense fallback={<DashboardLoading />}>
       <Routes>
+        {/* Algemene dashboard index route (redirect naar home) */}
+        <Route index element={userProfile.role === "recruiter" ? <RecruiterDashboard /> : <JobSeekerDashboard />} />
+        
+        {/* Gedeelde beschermde routes */}
         <Route element={<ProtectedRoute />}>
-          <Route element={<ProtectedContent />}>
-            <Route path="/" element={
-              <Dashboard userProfile={userProfile} currentUser={currentUser} />
-            } />
-            
-            {/* Profiel routes */}
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/profile/:type" element={<ProfilePage />} />
-            <Route path="/profile/jobseeker" element={<ProfilePage />} />
-            <Route path="/profile/recruiter" element={<ProfilePage />} />
-            
-            {/* CV Preview pagina */}
-            <Route path="/cv-preview" element={<CVPreview />} />
-            
-            {/* Vacature maken/bewerken pagina - alleen voor recruiters */}
-            <Route element={<ProtectedRoute requiredRole="recruiter" />}>
-              <Route path="/create-job" element={<CreateJob />} />
-              <Route path="/edit-job/:jobId" element={<EditJob />} />
-            </Route>
-          </Route>
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="favorites" element={<FavoritesPage />} />
         </Route>
+        
+        {/* Specifieke routes voor werkzoekenden */}
+        <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
+          <Route path="cv-preview" element={<CVPreview />} />
+        </Route>
+        
+        {/* Specifieke routes voor recruiters */}
+        <Route element={<ProtectedRoute requiredRole="recruiter" />}>
+          <Route path="create-job" element={<CreateJob />} />
+          <Route path="edit-job/:jobId" element={<EditJob />} />
+          <Route path="applications/:jobId" element={<ApplicationsList />} />
+        </Route>
+        
+        {/* Fallback route binnen dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>
   );

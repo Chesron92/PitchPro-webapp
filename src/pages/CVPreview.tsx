@@ -53,6 +53,7 @@ const CVPreview: React.FC = () => {
   const [cvData, setCvData] = useState<DetailedCV | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pitchVideoUrl, setPitchVideoUrl] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -71,6 +72,13 @@ const CVPreview: React.FC = () => {
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
+          
+          // Controleer of er een video pitch URL is
+          if (userData.pitchVideo) {
+            setPitchVideoUrl(userData.pitchVideo);
+          } else if (userData.profile?.pitchVideo) {
+            setPitchVideoUrl(userData.profile.pitchVideo);
+          }
           
           // Controleer eerst of er een detailedCV object is in userData
           if (userData.detailedCV) {
@@ -222,6 +230,26 @@ const CVPreview: React.FC = () => {
               <div className="mb-8">
                 <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Over mij</h2>
                 <p className="text-gray-700 whitespace-pre-line">{cvData.overMij}</p>
+              </div>
+            )}
+
+            {/* Video Pitch */}
+            {pitchVideoUrl && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Video Pitch</h2>
+                <div className="aspect-video rounded-lg overflow-hidden shadow-md">
+                  <video 
+                    controls
+                    className="w-full h-full"
+                    poster="/images/video-thumbnail.jpg"
+                  >
+                    <source src={pitchVideoUrl} type="video/mp4" />
+                    Uw browser ondersteunt geen video weergave.
+                  </video>
+                </div>
+                <p className="mt-2 text-gray-600 text-sm">
+                  Dit is mijn persoonlijke video pitch waarin ik mezelf kort presenteer.
+                </p>
               </div>
             )}
 

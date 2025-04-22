@@ -121,11 +121,9 @@ const AppContent: React.FC = () => {
           {/* About route */}
           <Route path="/about" element={<About />} />
           
-          {/* Vacatures routes - alleen toegankelijk voor werkzoekenden */}
-          <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
-            <Route path="/jobs" element={<Jobs />} />
-            <Route path="/job/:jobId" element={<JobDetail />} />
-          </Route>
+          {/* Vacatures routes - nu toegankelijk voor alleen werkzoekenden */}
+          <Route path="/jobs" element={<Jobs />} />
+          <Route path="/job/:jobId" element={<JobDetail />} />
           
           {/* Beschermde applicatie routes */}
           <Route element={<ProtectedRoute />}>

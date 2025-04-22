@@ -1,16 +1,8 @@
-import { Routes, Route } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-
-function App() {
+export default function AppSimple() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Hallo Wereld! Dit is PitchPro.</h1>
-        <p>Als je dit kunt zien, werkt de app.</p>
-      </header>
+    <div className="min-h-screen bg-gray-100">
+      <h1 className="text-2xl font-bold p-4">Vereenvoudigde App</h1>
+      <p className="p-4">Dit is een vereenvoudigde versie van de applicatie.</p>
     </div>
   );
-}
-
-export default App; 
+} 
