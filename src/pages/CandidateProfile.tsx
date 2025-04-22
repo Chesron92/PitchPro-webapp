@@ -265,10 +265,6 @@ const CandidateProfile: React.FC = () => {
     setImageError(true);
   };
 
-  const handleCVView = () => {
-    setActiveTab('cv');
-  };
-
   const handleScheduleMeeting = () => {
     // Navigeer naar een formulier voor het inplannen van een afspraak
     navigate(`/schedule-meeting/${id}`);
@@ -355,10 +351,7 @@ const CandidateProfile: React.FC = () => {
   const bio = getDataField('bio', getDataField('about', ''));
   const skills = candidate.skills || candidate.professionalDetails?.skills || candidate.profile?.skills || [];
   const location = candidate.location || candidate.city || 'Locatie onbekend';
-  const experience = typeof candidate.professionalDetails?.yearsOfExperience === 'number' 
-    ? `${candidate.professionalDetails.yearsOfExperience} jaar ervaring` 
-    : candidate.experience || candidate.profile?.experience || 'Ervaring onbekend';
-
+  
   // CV gerelateerde data
   const cvData = candidate.cv;
   console.log("CV data in render:", cvData);

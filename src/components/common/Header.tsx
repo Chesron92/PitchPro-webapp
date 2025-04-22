@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessageContext';
 
@@ -7,7 +7,6 @@ const Header: React.FC = () => {
   const { currentUser, logout, userProfile } = useAuth();
   const location = useLocation();
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
-  const isDashboard = location.pathname.includes('/dashboard');
   
   // Veilig ophalen van ongelezen berichten
   let unreadCount = 0;
@@ -86,7 +85,7 @@ const Header: React.FC = () => {
             </svg>
           </Link>
           <Link 
-            to="/profile" 
+            to="/dashboard/profile" 
             className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}
           >
             Profiel
@@ -143,10 +142,12 @@ const Header: React.FC = () => {
               Over ons
             </Link>
             
-            {/* Vacatures voor alle gebruikers tonen */}
-            <Link to="/jobs" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
-              Vacatures
-            </Link>
+            {/* Vacatures alleen tonen voor werkzoekenden en niet-ingelogde gebruikers */}
+            {(!isRecruiter) && (
+              <Link to="/jobs" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+                Vacatures
+              </Link>
+            )}
             
             {/* Toon 'Kandidaten' alleen voor recruiters */}
             {isRecruiter && (
