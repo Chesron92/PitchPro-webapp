@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../firebase/config';
-import { JobSeeker, BaseUser } from '../../types/user';
+import { db, auth } from '../../firebase/config';
+import { BaseUser } from '../../types/user';
 import CVUploadSection from './CVUploadSection';
 import CVPreviewSection from './CVPreviewSection';
 import DetailedCVForm from './DetailedCVForm';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth } from '../../firebase/config';
 
 interface JobSeekerProfileFormProps {
   user: BaseUser;
@@ -33,6 +32,7 @@ interface JobSeekerFormInputs {
   education: string;
   profilePhoto: string;
   isAvailableForWork?: boolean;
+  pitchVideo?: string;
 }
 
 const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({ 
@@ -47,6 +47,9 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
   );
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | undefined>(
     user.profile?.profilePhoto || user.profilePhoto || ''
+  );
+  const [pitchVideoUrl, setPitchVideoUrl] = useState<string | undefined>(
+    user.profile?.pitchVideo || user.pitchVideo || ''
   );
   const [isToggleActive, setIsToggleActive] = useState<boolean>(false);
   
@@ -79,7 +82,8 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       experience: '',
       education: '',
       profilePhoto: '',
-      isAvailableForWork: false
+      isAvailableForWork: false,
+      pitchVideo: ''
     };
     
     // Vul persoonlijke gegevens in vanaf verschillende mogelijke locaties
@@ -160,6 +164,12 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         setProfilePhotoUrl(profile.profilePhoto);
         initialValues.profilePhoto = profile.profilePhoto;
       }
+      
+      // Pitch video
+      if (profile.pitchVideo) {
+        setPitchVideoUrl(profile.pitchVideo);
+        initialValues.pitchVideo = profile.pitchVideo;
+      }
     }
     
     // Update profile photo URL uit verschillende mogelijke bronnen
@@ -177,6 +187,13 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
     if (cvURLToSet) {
       setCvUrl(cvURLToSet);
       initialValues.cv = cvURLToSet;
+    }
+    
+    // Pitch video URL uit verschillende mogelijke bronnen
+    const videoURLToSet = user.pitchVideo || (user.profile && user.profile.pitchVideo ? user.profile.pitchVideo : '');
+    if (videoURLToSet) {
+      setPitchVideoUrl(videoURLToSet);
+      initialValues.pitchVideo = videoURLToSet;
     }
     
     // Reset het formulier met de nieuwe waarden
@@ -239,6 +256,65 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
     }
   };
   
+  const handleVideoUpload = async (file: File) => {
+    try {
+      setLoading(true);
+      const storage = getStorage();
+      const user = auth.currentUser;
+      
+      if (!file) {
+        throw new Error("Geen bestand geselecteerd.");
+      }
+      
+      if (!user) {
+        throw new Error("Je bent niet ingelogd. Log opnieuw in om je video te uploaden.");
+      }
+      
+      // Controle op bestandsgrootte (max 100MB)
+      const MAX_SIZE_MB = 100;
+      const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+      if (file.size > MAX_SIZE_BYTES) {
+        throw new Error(`Video is te groot. Maximale grootte is ${MAX_SIZE_MB}MB.`);
+      }
+      
+      // Maak een unieke bestandsnaam met timestamp
+      const timestamp = new Date().getTime();
+      const fileName = `pitch-${timestamp}-${file.name}`;
+      const storageRef = ref(storage, `pitch-videos/${user.uid}/${fileName}`);
+      
+      console.log("Video uploaden naar:", `pitch-videos/${user.uid}/${fileName}`);
+      
+      // Upload het bestand
+      await uploadBytes(storageRef, file);
+      console.log("Video geüpload, nu de download URL ophalen");
+      
+      // Haal de download URL op
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log("Video URL ontvangen:", downloadURL);
+      
+      // Update de state en form value
+      setPitchVideoUrl(downloadURL);
+      setValue('pitchVideo', downloadURL);
+      
+      // Direct de video URL bijwerken in Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, {
+        pitchVideo: downloadURL,
+        "profile.pitchVideo": downloadURL,
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log("Video succesvol bijgewerkt in profiel");
+      return downloadURL;
+    } catch (err) {
+      console.error('Fout bij uploaden video:', err);
+      onError('Er is een fout opgetreden bij het uploaden van je video. Probeer het later opnieuw.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const onSubmit = async (data: JobSeekerFormInputs) => {
     if (!auth.currentUser) {
       onError("Je bent niet ingelogd. Log opnieuw in om je profiel op te slaan.");
@@ -272,7 +348,8 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         portfolio: data.portfolio || '',
         experience: data.experience || '',
         education: data.education ? data.education.split(',').map(edu => edu.trim()) : [],
-        profilePhoto: profilePhotoUrl || data.profilePhoto || ''
+        profilePhoto: profilePhotoUrl || data.profilePhoto || '',
+        pitchVideo: pitchVideoUrl || data.pitchVideo || ''
       };
 
       // Voorbereiden van bijgewerkte gebruikersgegevens
@@ -293,6 +370,7 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         profile: profile,
         profilePhoto: profile.profilePhoto, // Duplicaat op root niveau voor compatibiliteit
         cv: profile.cv, // Duplicaat op root niveau voor compatibiliteit
+        pitchVideo: profile.pitchVideo, // Duplicaat op root niveau voor compatibiliteit
         updatedAt: serverTimestamp(),
       };
 
@@ -589,6 +667,139 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="https://jouwportfolio.com"
                 />
+              </div>
+            </div>
+          </div>
+          
+          {/* Na de Professionele informatie sectie, voeg de Video Pitch sectie toe */}
+          <div className="mt-8 mb-8">
+            <h2 className="text-lg font-medium mb-4">Video Pitch</h2>
+            <p className="text-gray-600 mb-4">
+              Upload een korte video (max. 1,5 minuut) waarin je jezelf voorstelt aan recruiters. 
+              Vertel iets over je ervaring, motivatie en waarom je geschikt bent voor je droombaan.
+            </p>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              {/* Video upload sectie */}
+              <div className="flex flex-col md:flex-row gap-6">
+                {/* Upload zone */}
+                <div className="md:w-1/2">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Selecteer een videobestand (max. 1,5 minuut)
+                    </label>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleVideoUpload(file)
+                            .then(() => console.log("Video succesvol geüpload"))
+                            .catch(err => console.error("Fout bij uploaden:", err));
+                        }
+                      }}
+                      className="hidden"
+                      id="pitchVideo"
+                    />
+                    <label
+                      htmlFor="pitchVideo"
+                      className="cursor-pointer flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 transition-colors duration-200"
+                    >
+                      <div className="text-center">
+                        <svg 
+                          className="mx-auto h-12 w-12 text-gray-400" 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" 
+                          />
+                        </svg>
+                        <p className="mt-2 text-sm font-medium text-primary-600">Sleep je video hierheen of klik om te selecteren</p>
+                        <p className="mt-1 text-xs text-gray-500">MP4, MOV, WEBM of AVI (max. 100MB)</p>
+                      </div>
+                    </label>
+                  </div>
+                  {/* Hidden input for the video URL */}
+                  <input type="hidden" {...register('pitchVideo')} />
+                </div>
+                
+                {/* Video preview */}
+                <div className="md:w-1/2">
+                  {pitchVideoUrl ? (
+                    <div className="rounded-lg overflow-hidden">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Video preview
+                      </label>
+                      <video 
+                        controls 
+                        className="w-full h-auto border border-gray-200 rounded-lg shadow-sm"
+                        src={pitchVideoUrl} 
+                      >
+                        Je browser ondersteunt geen video weergave.
+                      </video>
+                      <div className="flex justify-between mt-2">
+                        <p className="text-sm text-gray-500">
+                          Video succesvol geüpload!
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPitchVideoUrl('');
+                            setValue('pitchVideo', '');
+                          }}
+                          className="text-sm text-red-600 hover:text-red-800"
+                        >
+                          Verwijderen
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full border border-gray-200 rounded-lg bg-white p-6">
+                      <div className="text-center text-gray-500">
+                        <svg 
+                          className="mx-auto h-12 w-12 text-gray-400" 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" 
+                          />
+                        </svg>
+                        <p className="mt-2">Nog geen video geüpload.</p>
+                        <p className="mt-1 text-xs">Upload een video om deze hier te bekijken.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-3 border-t border-gray-200">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-gray-500">
+                      Je video pitch is een krachtige manier om jezelf te presenteren. Houd je video kort (max. 1,5 minuut) 
+                      en vertel iets over je ervaring, persoonlijkheid en wat je uniek maakt. Zorg voor een rustige omgeving 
+                      en goede belichting voor de beste indruk.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

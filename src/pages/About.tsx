@@ -1,8 +1,15 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
+import { useAuth } from '../contexts/AuthContext';
 
 const About: React.FC = () => {
+  const { currentUser, userProfile } = useAuth();
+  
+  // Controleer of de gebruiker een recruiter is
+  const isRecruiter = userProfile?.role === 'recruiter' || userProfile?.userType === 'recruiter';
+  
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -16,6 +23,26 @@ const About: React.FC = () => {
             <p className="text-white text-lg mb-6">
               PitchPro is geboren uit de wens om talent en bedrijven efficiënt en mensgericht te verbinden. Ons innovatieve platform combineert geavanceerde technologie met persoonlijke betrokkenheid om echte matches te creëren, gebaseerd op de unieke verhalen achter elk CV. Ontdek een nieuwe manier van recruitment waarin elke pitch het startpunt is voor succes.
             </p>
+            
+            {currentUser && (
+              <div className="flex justify-center mt-8">
+                {isRecruiter ? (
+                  <Link
+                    to="/candidates"
+                    className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md"
+                  >
+                    Naar kandidaten
+                  </Link>
+                ) : (
+                  <Link
+                    to="/jobs"
+                    className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md"
+                  >
+                    Naar vacatures
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

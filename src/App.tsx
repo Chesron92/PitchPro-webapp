@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect, Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
@@ -25,7 +25,6 @@ const ApplicationDetail = lazy(() => import('./pages/ApplicationDetail'));
 const DashboardRoutes = lazy(() => import('./routes/dashboardRoutes'));
 
 // Kleinere componenten die direct geladen kunnen worden
-import Layout from './components/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import PublicRoute from './components/common/PublicRoute';
 

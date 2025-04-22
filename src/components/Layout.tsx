@@ -1,7 +1,5 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import '../styles/Layout.css';
 import Header from './common/Header';
 import Footer from './common/Footer';
 
