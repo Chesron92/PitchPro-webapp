@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMessages } from '../contexts/MessageContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/common/Spinner';
-import Header from '../components/common/Header';
 
 const Messages: React.FC = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -102,7 +101,6 @@ const Messages: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Berichten</h1>

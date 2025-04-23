@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useMessages } from '../contexts/MessageContext';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from '../components/common/Spinner';
-import Header from '../components/common/Header';
 
 const Conversation: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -91,8 +90,6 @@ const Conversation: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-4xl mx-auto min-h-[70vh] flex flex-col">
           {!conversationId || !activeChat ? (
