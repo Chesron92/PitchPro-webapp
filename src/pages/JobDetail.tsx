@@ -5,6 +5,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useMessages } from '../contexts/MessageContext';
 import Header from '../components/common/Header';
+import { shouldShowHeaderAndFooter } from '../utils/pageUtils';
 
 // Interface voor vacature
 interface Job {
@@ -152,7 +153,7 @@ const JobDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
+      {shouldShowHeaderAndFooter() && <Header />}
       
       <div className="container mx-auto px-4 py-12 mt-12">
         <div className="max-w-4xl mx-auto">

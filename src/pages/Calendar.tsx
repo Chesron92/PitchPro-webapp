@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
 import { isRecruiter } from '../types/user';
 import { useNavigate } from 'react-router-dom';
+import { shouldShowHeaderAndFooter } from '../utils/pageUtils';
 
 interface Meeting {
   id: string;
@@ -230,16 +229,14 @@ const Calendar: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Pagina header */}
-      <Header />
-      <div className="w-full bg-gradient-to-r from-primary-600 to-primary-800 text-white py-24">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto">
-            <h1 className="text-3xl font-bold mb-4">Agenda</h1>
-            <p className="text-lg opacity-90">
-              {isUserRecruiter 
-                ? "Bekijk en beheer al je geplande afspraken" 
-                : "Bekijk je geplande afspraken en gesprekken"}
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-10">
+        <div className="container mx-auto px-4 py-16 md:py-24">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+              Agenda
+            </h1>
+            <p className="text-xl mb-8 text-primary-100">
+              Bekijk en beheer al je geplande afspraken
             </p>
           </div>
         </div>
@@ -427,8 +424,6 @@ const Calendar: React.FC = () => {
           )}
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 };
