@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 
 // Opleidingsgegevens interface
@@ -295,7 +294,6 @@ const CandidateProfile: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
         <div className="container mx-auto px-4 py-32 flex justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
         </div>
@@ -307,7 +305,6 @@ const CandidateProfile: React.FC = () => {
   if (error || !candidate) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
         <div className="container mx-auto px-4 py-32 text-center">
           <div className="max-w-md mx-auto">
             <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -378,7 +375,6 @@ const CandidateProfile: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
       <div className="container mx-auto px-4 py-32">
         <div className="mb-6">
           <button 

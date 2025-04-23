@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import Header from '../components/common/Header';
 import { useForm } from 'react-hook-form';
 
 interface JobFormData {
@@ -145,7 +144,6 @@ const EditJob: React.FC = () => {
   if (unauthorized) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="container mx-auto px-4 py-12 max-w-3xl">
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
             <p>Je hebt geen toestemming om deze vacature te bewerken.</p>
@@ -163,8 +161,6 @@ const EditJob: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
-      
       <div className="container mx-auto px-4 py-12 max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">Vacature bewerken</h1>

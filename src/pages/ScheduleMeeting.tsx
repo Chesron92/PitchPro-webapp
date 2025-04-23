@@ -3,7 +3,6 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useForm, Controller, SubmitHandler } from 'react-hook-form';
-import Header from '../components/common/Header';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import { isRecruiter } from '../types/user';
@@ -373,7 +372,6 @@ const ScheduleMeeting: React.FC = () => {
   if (loading && !candidate) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
         <div className="container mx-auto px-4 py-32 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Bezig met laden...</p>
@@ -387,7 +385,6 @@ const ScheduleMeeting: React.FC = () => {
   if (loading && id) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
         <div className="container mx-auto px-4 py-32 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Bezig met laden...</p>
@@ -399,7 +396,6 @@ const ScheduleMeeting: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-white">
-      <Header />
       
       {/* Blauwe header sectie, identiek aan de kandidaat pagina */}
       <div className="w-full bg-gradient-to-r from-primary-600 to-primary-800 text-white py-32 mb-8">
