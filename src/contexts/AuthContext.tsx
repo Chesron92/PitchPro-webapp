@@ -1,15 +1,20 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
   getAuth, 
   onAuthStateChanged,
   signOut,
+  User as FirebaseUser
   // Eventuele andere benodigde imports
 } from 'firebase/auth';
 import { BaseUser } from '../types/user';
 // Verwijder ongebruikte importtypen zoals User, JobSeeker, Recruiter, UserProfile
 
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { db, getFirestore as getFirestoreDB, getFirebaseAuth } from '../firebase/config';
+import { isJobSeeker, isRecruiter, getUserRole } from '../types/user';
+
+// Definieer UserRole type
+export type UserRole = 'werkzoekende' | 'jobseeker' | 'recruiter' | 'admin';
 
 export interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -140,10 +145,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log("Nieuw gebruikersprofiel aanmaken voor", userId);
     
     // Lazy-load Firestore
-    const db = db || await getFirestoreDB();
+    const firestoreDb = await getFirestoreDB();
     const { doc, setDoc } = await import('firebase/firestore');
     
-    const userDocRef = doc(db, 'users', userId);
+    const userDocRef = doc(firestoreDb, 'users', userId);
     
     const baseUserData: BaseUser = {
       id: userId,
@@ -198,7 +203,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (email: string, password: string, displayName: string, role: UserRole) => {
     try {
       // Lazy-load Firebase auth
-      const auth = authInstance || await getFirebaseAuth();
+      const auth = await getFirebaseAuth();
       const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
       
       // Maak een gebruiker aan met Firebase Auth
@@ -223,7 +228,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('Inlogpoging voor:', email);
       
       // Lazy-load Firebase auth
-      const auth = authInstance || await getFirebaseAuth();
+      const auth = await getFirebaseAuth();
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       
       await signInWithEmailAndPassword(auth, email, password);
@@ -240,7 +245,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       // Lazy-load Firebase auth
-      const auth = authInstance || await getFirebaseAuth();
+      const auth = await getFirebaseAuth();
       const { signOut } = await import('firebase/auth');
       
       await signOut(auth);
@@ -254,7 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const resetPassword = async (email: string) => {
     try {
       // Lazy-load Firebase auth
-      const auth = authInstance || await getFirebaseAuth();
+      const auth = await getFirebaseAuth();
       const { sendPasswordResetEmail } = await import('firebase/auth');
       
       await sendPasswordResetEmail(auth, email);
@@ -267,18 +272,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Verbeterde functie voor het laden van het gebruikersprofiel met betere foutafhandeling
   const loadUserProfile = async (userId: string) => {
     try {
-      console.log("Bezig met laden van gebruikersprofiel voor", userId);
+      console.log("Laden gebruikersprofiel voor:", userId);
       
       // Lazy-load Firestore
-      const db = dbInstance || await getFirestoreDB();
+      const firestoreDb = await getFirestoreDB();
       const { doc, getDoc, updateDoc } = await import('firebase/firestore');
       
-      const userDocRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userDocRef);
+      const userDocRef = doc(firestoreDb, 'users', userId);
+      const userSnapshot = await getDoc(userDocRef);
       
-      if (userDoc.exists()) {
+      if (userSnapshot.exists()) {
         // Haal ruwe data op
-        const rawUserData = userDoc.data();
+        const rawUserData = userSnapshot.data();
         console.log("Ruwe gebruikersdata uit Firestore:", rawUserData);
         
         // Controleer op minimaal benodigde velden
@@ -411,7 +416,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initAuth = async () => {
       try {
         // Lazy-load Firebase auth
-        const auth = authInstance || await getFirebaseAuth();
+        const auth = await getFirebaseAuth();
         const { onAuthStateChanged } = await import('firebase/auth');
         
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
