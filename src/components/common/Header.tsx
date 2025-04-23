@@ -2,10 +2,21 @@ import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessageContext';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const Header: React.FC = () => {
-  const { currentUser, logout, userProfile } = useAuth();
+  // Check of we in een Layout zitten via de context
+  const { isInsideLayout } = useLayout();
+  
+  // Controleer de locatie van waar deze Header wordt opgeroepen
   const location = useLocation();
+  
+  // We tonen de header NIET op de landingspagina omdat deze zijn eigen header heeft
+  if (location.pathname === '/') {
+    return null;
+  }
+  
+  const { currentUser, logout, userProfile } = useAuth();
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
   
   // Veilig ophalen van ongelezen berichten

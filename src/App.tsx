@@ -3,7 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
+import { LayoutProvider } from './contexts/LayoutContext';
 import Layout from './components/Layout';
+import Header from './components/common/Header';
 
 // Lazy loaded pagina's
 const Login = lazy(() => import('./pages/Login'));
@@ -107,6 +109,9 @@ const AppContent: React.FC = () => {
   
   return (
     <Router basename="/">
+      {/* Voeg Header toe buiten de routes, zodat deze altijd zichtbaar is */}
+      <Header />
+      
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* Landing page zonder layout omdat deze zijn eigen hero heeft */}
@@ -125,7 +130,7 @@ const AppContent: React.FC = () => {
             <Route path="/about" element={<About />} />
             
             {/* Vacatures routes - nu toegankelijk voor alleen werkzoekenden */}
-            <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
+            <Route element={<ProtectedRoute requiredRole="werkzoekende" />}>
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/job/:jobId" element={<JobDetail />} />
             </Route>
@@ -191,7 +196,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <MessageProvider>
         <FavoritesProvider>
-          <AppContent />
+          <LayoutProvider isInsideLayout={false}>
+            <AppContent />
+          </LayoutProvider>
         </FavoritesProvider>
       </MessageProvider>
     </AuthProvider>

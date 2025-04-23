@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import Header from '../components/common/Header';
 import { useNavigate } from 'react-router-dom';
-import Footer from '../components/common/Footer';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -215,11 +213,9 @@ const Jobs: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      
+    <div className="min-h-screen bg-gray-50">
       {/* Hero sectie */}
-      <div className="bg-gradient-to-br from-primary-600 to-primary-800 text-white pt-20">
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white py-10">
         <div className="container mx-auto px-4 py-16 md:py-24">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
@@ -523,8 +519,6 @@ const Jobs: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 };

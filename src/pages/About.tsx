@@ -1,7 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
 import { useAuth } from '../contexts/AuthContext';
 
 const About: React.FC = () => {
@@ -12,8 +10,6 @@ const About: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-      
       {/* Hero sectie met blauwe achtergrond */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-800 text-white pt-20 pb-16">
         <div className="container mx-auto px-4">
@@ -106,8 +102,6 @@ const About: React.FC = () => {
           </div>
         </div>
       </div>
-      
-      <Footer />
     </div>
   );
 };

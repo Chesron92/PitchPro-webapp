@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
+import { useLayout } from '../../contexts/LayoutContext';
 
 const Footer: React.FC = () => {
+  // Check of we in een Layout zitten via de context
+  const { isInsideLayout } = useLayout();
+  
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
