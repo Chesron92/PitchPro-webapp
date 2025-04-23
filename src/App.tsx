@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { MessageProvider } from './contexts/MessageContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
+import Layout from './components/Layout';
 
 // Lazy loaded pagina's
 const Login = lazy(() => import('./pages/Login'));
@@ -108,7 +109,7 @@ const AppContent: React.FC = () => {
     <Router basename="/">
       <Suspense fallback={<Loading />}>
         <Routes>
-          {/* Openbare routes */}
+          {/* Landing page zonder layout omdat deze zijn eigen hero heeft */}
           <Route path="/" element={<Landing />} />
           
           {/* Publieke routes met PublicRoute bescherming */}
@@ -118,46 +119,49 @@ const AppContent: React.FC = () => {
             <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
           
-          {/* About route */}
-          <Route path="/about" element={<About />} />
-          
-          {/* Vacatures routes - nu toegankelijk voor alleen werkzoekenden */}
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/job/:jobId" element={<JobDetail />} />
-          
-          {/* Beschermde applicatie routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/job-application/:jobId" element={<JobApplicationForm />} />
-          </Route>
-          
-          {/* Job applicant routes */}
-          <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
-            <Route path="/applications" element={<Applications />} />
-            <Route path="/search-jobs" element={<SearchJobs />} />
-          </Route>
+          {/* Pagina's met layout */}
+          <Route element={<Layout />}>
+            {/* About route */}
+            <Route path="/about" element={<About />} />
+            
+            {/* Vacatures routes - nu toegankelijk voor alleen werkzoekenden */}
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/job/:jobId" element={<JobDetail />} />
+            
+            {/* Beschermde applicatie routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/job-application/:jobId" element={<JobApplicationForm />} />
+            </Route>
+            
+            {/* Job applicant routes */}
+            <Route element={<ProtectedRoute requiredRole="jobseeker" />}>
+              <Route path="/applications" element={<Applications />} />
+              <Route path="/search-jobs" element={<SearchJobs />} />
+            </Route>
 
-          {/* Recruiter specific routes */}
-          <Route element={<ProtectedRoute requiredRole="recruiter" />}>
-            <Route path="/candidates" element={<Candidates />} />
-            <Route path="/candidate/:id" element={<CandidateProfile />} />
-            <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
-            <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
-          </Route>
+            {/* Recruiter specific routes */}
+            <Route element={<ProtectedRoute requiredRole="recruiter" />}>
+              <Route path="/candidates" element={<Candidates />} />
+              <Route path="/candidate/:id" element={<CandidateProfile />} />
+              <Route path="/schedule-meeting" element={<ScheduleMeeting />} />
+              <Route path="/schedule-meeting/:id" element={<ScheduleMeeting />} />
+            </Route>
 
-          {/* Shared routes (accessible to both job seekers and recruiters) */}
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/messages/:conversationId" element={<Conversation />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/job/:id" element={<JobDetail />} />
-          <Route path="/application/:id" element={<ApplicationDetail />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/agenda" element={<Calendar />} />
+            {/* Shared routes (accessible to both job seekers and recruiters) */}
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/messages/:conversationId" element={<Conversation />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/job/:id" element={<JobDetail />} />
+            <Route path="/application/:id" element={<ApplicationDetail />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/agenda" element={<Calendar />} />
+
+            {/* Fallback route voor debugging */}
+            <Route path="/simple" element={<SimpleDashboard />} />
+          </Route>
 
           {/* Redirect route (voor directe doorverwijzing naar dashboard/login) */}
           <Route path="/redirect" element={<Redirect />} />
-          
-          {/* Fallback route voor debugging */}
-          <Route path="/simple" element={<SimpleDashboard />} />
           
           {/* Dashboard routes - nu lazy loaded met separate bundle */}
           <Route path="/dashboard/*" element={
