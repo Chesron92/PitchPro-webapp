@@ -1,18 +1,19 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/common/ProtectedRoute';
-import UserProfile from '../types/UserProfile';
+import { UserProfile } from '../types/user';
 import { User } from 'firebase/auth';
 
 // Dashboard Componenten
 const RecruiterDashboard = lazy(() => import('../components/dashboard/RecruiterDashboard'));
 const JobSeekerDashboard = lazy(() => import('../components/dashboard/JobSeekerDashboard'));
-const ProfilePage = lazy(() => import('../pages/Profile'));
+const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const CVPreview = lazy(() => import('../pages/CVPreview'));
 const CreateJob = lazy(() => import('../pages/CreateJob'));
 const EditJob = lazy(() => import('../pages/EditJob'));
-const ApplicationsList = lazy(() => import('../pages/ApplicationsList'));
-const FavoritesPage = lazy(() => import('../pages/Favorites'));
+// ApplicationsList en FavoritesPage ontbreken, dus we maken ze tijdelijk als placeholders
+const ApplicationsList = () => <div>Applicaties Lijst (Placeholder)</div>;
+const FavoritesPage = () => <div>Favorieten Pagina (Placeholder)</div>;
 
 // Loading-component voor Suspense fallback
 const DashboardLoading = () => (
@@ -38,7 +39,9 @@ const DashboardRoutes: React.FC<DashboardRoutesProps> = ({ userProfile, currentU
     <Suspense fallback={<DashboardLoading />}>
       <Routes>
         {/* Algemene dashboard index route (redirect naar home) */}
-        <Route index element={userProfile.role === "recruiter" ? <RecruiterDashboard /> : <JobSeekerDashboard />} />
+        <Route index element={userProfile.role === "recruiter" ? 
+          <RecruiterDashboard user={userProfile} /> : 
+          <JobSeekerDashboard user={userProfile} />} />
         
         {/* Gedeelde beschermde routes */}
         <Route element={<ProtectedRoute />}>
