@@ -348,7 +348,7 @@ const CandidateProfile: React.FC = () => {
   const bio = getDataField('bio', getDataField('about', ''));
   const skills = candidate.skills || candidate.professionalDetails?.skills || candidate.profile?.skills || [];
   const location = candidate.location || candidate.city || 'Locatie onbekend';
-  
+
   // CV gerelateerde data
   const cvData = candidate.cv;
   console.log("CV data in render:", cvData);

@@ -33,6 +33,7 @@ interface JobSeekerFormInputs {
   profilePhoto: string;
   isAvailableForWork?: boolean;
   pitchVideo?: string;
+  hoursPerWeek?: string;
 }
 
 const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({ 
@@ -83,7 +84,8 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       education: '',
       profilePhoto: '',
       isAvailableForWork: false,
-      pitchVideo: ''
+      pitchVideo: '',
+      hoursPerWeek: '',
     };
     
     // Vul persoonlijke gegevens in vanaf verschillende mogelijke locaties
@@ -105,6 +107,19 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       if (!initialValues.postalCode) initialValues.postalCode = address.postalCode || '';
       if (!initialValues.city) initialValues.city = address.city || '';
       if (!initialValues.country) initialValues.country = address.country || '';
+    }
+    
+    // NIEUW: controleer personalAddress object (voorheen gebruikt door iOS app)
+    if (user.personalAddress && typeof user.personalAddress === 'object') {
+      const pAddress = user.personalAddress as Record<string, any>;
+      if (!initialValues.street) initialValues.street = pAddress.street || '';
+      if (!initialValues.houseNumber) initialValues.houseNumber = pAddress.houseNumber || '';
+      if (!initialValues.postalCode) initialValues.postalCode = pAddress.postalCode || '';
+      if (!initialValues.city) initialValues.city = pAddress.city || '';
+      if (!initialValues.country) initialValues.country = pAddress.country || '';
+
+      // Indien telefoon in personalAddress staat
+      if (!initialValues.phoneNumber) initialValues.phoneNumber = pAddress.phone || '';
     }
     
     // Controleer de profile gegevens
@@ -133,6 +148,9 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       
       // Beschikbaarheid direct uit profiel
       initialValues.availability = profile.availability || '';
+      
+      // Uren per week uit profiel (iOS)
+      if (profile.hoursPerWeek) initialValues.hoursPerWeek = profile.hoursPerWeek;
       
       // Beschikbaarheid voor werk
       initialValues.isAvailableForWork = profile.isAvailableForWork === true;
@@ -190,10 +208,26 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
     }
     
     // Pitch video URL uit verschillende mogelijke bronnen
-    const videoURLToSet = user.pitchVideo || (user.profile && user.profile.pitchVideo ? user.profile.pitchVideo : '');
+    const videoURLToSet =
+      user.pitchVideo ||
+      user.pitchVideoURL ||
+      (user.profile && (user.profile.pitchVideo || user.profile.pitchVideoURL)
+        ? user.profile.pitchVideo || user.profile.pitchVideoURL
+        : '');
     if (videoURLToSet) {
       setPitchVideoUrl(videoURLToSet);
       initialValues.pitchVideo = videoURLToSet;
+    }
+    
+    // EXTRA: root niveau beschikbaarheidsvlag uit oudere apps
+    if (typeof user.isAvailable === 'boolean') {
+      initialValues.isAvailableForWork = user.isAvailable;
+      setIsToggleActive(user.isAvailable === true);
+    }
+    
+    // Root niveau hoursPerWeek
+    if (user.hoursPerWeek && !initialValues.hoursPerWeek) {
+      initialValues.hoursPerWeek = user.hoursPerWeek;
     }
     
     // Reset het formulier met de nieuwe waarden
@@ -300,7 +334,9 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
       const userDocRef = doc(db, "users", user.uid);
       await updateDoc(userDocRef, {
         pitchVideo: downloadURL,
+        pitchVideoURL: downloadURL,
         "profile.pitchVideo": downloadURL,
+        "profile.pitchVideoURL": downloadURL,
         updatedAt: serverTimestamp()
       });
       
@@ -342,6 +378,7 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         address: address,
         skills: data.skills ? data.skills.split(',').map(skill => skill.trim()) : [],
         availability: data.availability || '',
+        hoursPerWeek: data.hoursPerWeek || '',
         isAvailableForWork: data.isAvailableForWork === true,
         cv: cvUrl || data.cv || '',
         linkedin: data.linkedin || '',
@@ -349,8 +386,13 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         experience: data.experience || '',
         education: data.education ? data.education.split(',').map(edu => edu.trim()) : [],
         profilePhoto: profilePhotoUrl || data.profilePhoto || '',
-        pitchVideo: pitchVideoUrl || data.pitchVideo || ''
+        pitchVideo: pitchVideoUrl || data.pitchVideo || '',
+        pitchVideoURL: pitchVideoUrl || data.pitchVideo || '',
       };
+
+      // Zorg dat de beschikbaarheidsvlag zowel in het profiel als op root-niveau staat
+      const isAvailableBool = data.isAvailableForWork === true;
+      profile.isAvailableForWork = isAvailableBool;
 
       // Voorbereiden van bijgewerkte gebruikersgegevens
       const updatedUser = {
@@ -371,6 +413,15 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
         profilePhoto: profile.profilePhoto, // Duplicaat op root niveau voor compatibiliteit
         cv: profile.cv, // Duplicaat op root niveau voor compatibiliteit
         pitchVideo: profile.pitchVideo, // Duplicaat op root niveau voor compatibiliteit
+        pitchVideoURL: profile.pitchVideoURL,
+        hoursPerWeek: profile.hoursPerWeek,
+        // -----------------------------
+        // NIEUW: beschikbaarheid dupliceren op root-niveau
+        isAvailable: isAvailableBool,
+        isAvailableForWork: isAvailableBool,
+        // Dupliceer adresgegevens onder personalAddress voor iOS compatibiliteit
+        personalAddress: address,
+        // -----------------------------
         updatedAt: serverTimestamp(),
       };
 
@@ -598,6 +649,23 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
                 </select>
               </div>
               
+              {/* Uren per week */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Uren per week</label>
+                <select
+                  {...register('hoursPerWeek')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="">Selecteer uren</option>
+                  <option value="0-8">0-8</option>
+                  <option value="8-16">8-16</option>
+                  <option value="16-24">16-24</option>
+                  <option value="24-32">24-32</option>
+                  <option value="32-40">32-40</option>
+                  <option value=">40">40+</option>
+                </select>
+              </div>
+              
               <div className="mb-4">
                 <div className="flex items-center space-x-3 mt-4">
                   <label 
@@ -682,53 +750,55 @@ const JobSeekerProfileForm: React.FC<JobSeekerProfileFormProps> = ({
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
               {/* Video upload sectie */}
               <div className="flex flex-col md:flex-row gap-6">
-                {/* Upload zone */}
-                <div className="md:w-1/2">
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Selecteer een videobestand (max. 1,5 minuut)
-                    </label>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleVideoUpload(file)
-                            .then(() => console.log("Video succesvol geüpload"))
-                            .catch(err => console.error("Fout bij uploaden:", err));
-                        }
-                      }}
-                      className="hidden"
-                      id="pitchVideo"
-                    />
-                    <label
-                      htmlFor="pitchVideo"
-                      className="cursor-pointer flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 transition-colors duration-200"
-                    >
-                      <div className="text-center">
-                        <svg 
-                          className="mx-auto h-12 w-12 text-gray-400" 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" 
-                          />
-                        </svg>
-                        <p className="mt-2 text-sm font-medium text-primary-600">Sleep je video hierheen of klik om te selecteren</p>
-                        <p className="mt-1 text-xs text-gray-500">MP4, MOV, WEBM of AVI (max. 100MB)</p>
-                      </div>
-                    </label>
+                {/* Upload zone - alleen tonen als er nog GEEN video is */}
+                {!pitchVideoUrl && (
+                  <div className="md:w-1/2">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Selecteer een videobestand (max. 1,5 minuut)
+                      </label>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleVideoUpload(file)
+                              .then(() => console.log("Video succesvol geüpload"))
+                              .catch(err => console.error("Fout bij uploaden:", err));
+                          }
+                        }}
+                        className="hidden"
+                        id="pitchVideo"
+                      />
+                      <label
+                        htmlFor="pitchVideo"
+                        className="cursor-pointer flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 transition-colors duration-200"
+                      >
+                        <div className="text-center">
+                          <svg 
+                            className="mx-auto h-12 w-12 text-gray-400" 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            fill="none" 
+                            viewBox="0 0 24 24" 
+                            stroke="currentColor"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" 
+                            />
+                          </svg>
+                          <p className="mt-2 text-sm font-medium text-primary-600">Sleep je video hierheen of klik om te selecteren</p>
+                          <p className="mt-1 text-xs text-gray-500">MP4, MOV, WEBM of AVI (max. 100MB)</p>
+                        </div>
+                      </label>
+                    </div>
+                    {/* Hidden input for the video URL */}
+                    <input type="hidden" {...register('pitchVideo')} />
                   </div>
-                  {/* Hidden input for the video URL */}
-                  <input type="hidden" {...register('pitchVideo')} />
-                </div>
+                )}
                 
                 {/* Video preview */}
                 <div className="md:w-1/2">

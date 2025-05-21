@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { BaseUser } from '../../types/user';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, Timestamp, doc, getDoc, getFirestore, deleteDoc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Firebase configuratie (direct uit config bestand kopiëren om initialisatieproblemen te voorkomen)
+const firebaseConfig = {
+  apiKey: "AIzaSyAiTY14VexbFUQTf3yKhDPhrCtKjRzhMwQ",
+  authDomain: "pitchpro-29e90.firebaseapp.com",
+  projectId: "pitchpro-29e90",
+  storageBucket: "pitchpro-29e90.firebasestorage.app",
+  messagingSenderId: "121788535713",
+  appId: "1:121788535713:web:9c5ddf4ff9af0a0e2ff1e0",
+  measurementId: "G-QGBR93ZYCM"
+};
+
+// Zorg ervoor dat we altijd een Firebase instantie hebben
+const app = initializeApp(firebaseConfig);
+const firestore = getFirestore(app);
 
 interface Job {
   id: string;
@@ -37,6 +53,16 @@ interface Application {
   location?: string;
 }
 
+interface FavoriteCandidate {
+  id: string;
+  candidateId: string;
+  candidateName: string;
+  jobTitle: string;
+  experience?: string;
+  profilePhotoUrl?: string;
+  userType: string;
+}
+
 interface RecruiterDashboardProps {
   user: BaseUser;
 }
@@ -53,6 +79,9 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [applicationsLoading, setApplicationsLoading] = useState<boolean>(true);
   const [applicationsError, setApplicationsError] = useState<string | null>(null);
+  const [favoriteCandidates, setFavoriteCandidates] = useState<FavoriteCandidate[]>([]);
+  const [favoritesLoading, setFavoritesLoading] = useState<boolean>(true);
+  const [favoritesError, setFavoritesError] = useState<string | null>(null);
 
   // Bereken completeness van het profiel
   const calculateProfileCompletion = (): number => {
@@ -133,46 +162,183 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   // Haal de geplande meetings op voor deze recruiter
   useEffect(() => {
     const fetchMeetings = async () => {
-      if (!currentUser) return;
+      // Gebruik beide mogelijke ID velden
+      const recruiterId = currentUser?.uid || user.id || user.uid;
+      
+      if (!recruiterId) {
+        console.log('Geen gebruikers-ID gevonden om afspraken mee op te halen');
+        return;
+      }
       
       try {
         setMeetingsLoading(true);
         setMeetingsError(null);
         
         const now = Timestamp.now();
-        const meetingsRef = collection(db, 'meetings');
-        
-        // Haal meetings op waar de recruiterId overeenkomt met de huidige gebruiker
-        // en de meeting in de toekomst plaatsvindt
-        const q = query(
-          meetingsRef,
-          where('recruiterId', '==', currentUser.uid),
-          where('dateTime', '>=', now),
-          orderBy('dateTime', 'asc'),
-          limit(5) // Toon alleen de eerst komende 5 meetings
-        );
-        
-        const querySnapshot = await getDocs(q);
         const fetchedMeetings: Meeting[] = [];
+        let meetingsFound = false;
         
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          fetchedMeetings.push({
-            id: doc.id,
-            title: data.title || 'Ongetitelde afspraak',
-            candidateName: data.candidateName || 'Onbekende kandidaat',
-            dateTime: data.dateTime,
-            endDateTime: data.endDateTime,
-            locationType: data.locationType,
-            location: data.location,
-            meetingLink: data.meetingLink,
-            status: data.status || 'gepland'
-          });
-        });
+        // Probeer EERST uit 'events' collectie
+        try {
+          console.log('Afspraken ophalen uit events collectie...');
+          const eventsRef = collection(firestore, 'events');
+          
+          // Haal ALLE events op zonder filters
+          console.log('Alle events ophalen en dan lokaal filteren op recruiterId:', recruiterId);
+          const querySnapshot = await getDocs(eventsRef);
+          
+          console.log(`Aantal gevonden events in totaal: ${querySnapshot.size}`);
+          
+          if (querySnapshot.size > 0) {
+            // Debug: Toon alle events om te analyseren
+            console.log('Alle events in de collectie:');
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              console.log(`- Event ID: ${doc.id}`, {
+                recruiterId: data.recruiterId || data.recruiter_id || data.recruiterId || data.recruitID || data.recruiterUid || data.recruiterUID || data.userId || data.user_id || data.uid,
+                attendees: data.attendees || data.deelnemers || data.participants || data.gasten,
+                date: data.date, 
+                start: data.start,
+                startTijd: data.startTijd,
+                dateTime: data.dateTime,
+                eventType: data.eventType,
+                title: data.title || data.naam,
+                candidateName: data.candidateName || data.kandidaatNaam || data.metWie,
+                allKeys: Object.keys(data)
+              });
+            });
+            
+            // Filter lokaal op recruiterId en datum
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              
+              // Controleer of dit event bij deze recruiter hoort als organisator of als deelnemer
+              const eventRecruiterId = data.recruiterId || data.recruiter_id || data.recruiterId || data.recruitID || data.recruiterUid || data.recruiterUID || data.userId || data.user_id || data.uid;
+              
+              // Vergelijk ID's als strings om type-mismatch te voorkomen
+              const currentRecruiterId = String(recruiterId).trim();
+              const eventRecruiterIdStr = eventRecruiterId ? String(eventRecruiterId).trim() : '';
+              
+              // Check alle mogelijke arrays van deelnemers
+              const attendees = data.attendees || data.deelnemers || data.participants || data.gasten || [];
+              const attendeesArray = Array.isArray(attendees) ? attendees : typeof attendees === 'string' ? [attendees] : [];
+              
+              // Check of recruiter een deelnemer is (kan een array van IDs of een array van objecten zijn)
+              const isAttendee = attendeesArray.some(attendee => {
+                if (typeof attendee === 'string') {
+                  return String(attendee).trim() === currentRecruiterId;
+                } else if (typeof attendee === 'object' && attendee !== null) {
+                  // Check verschillende mogelijke ID velden in een deelnemer object
+                  const attendeeId = attendee.id || attendee.uid || attendee.userId || attendee.email;
+                  return attendeeId && String(attendeeId).trim() === currentRecruiterId;
+                }
+                return false;
+              });
+              
+              // Als deze recruiter niet de organisator is EN geen deelnemer is, sla over
+              if (eventRecruiterIdStr !== currentRecruiterId && !isAttendee) {
+                // console.log(`Event ${doc.id} is niet voor deze recruiter (organisator: ${eventRecruiterIdStr}, deelnemer: ${isAttendee}), overslaan...`);
+                return;
+              }
+              
+              // Controleer of dit event in de toekomst is
+              let eventDate: Timestamp | null = null;
+              
+              // Probeer verschillende mogelijke veldnamen voor de datum
+              if (data.date && data.date instanceof Timestamp) {
+                eventDate = data.date;
+              } else if (data.start && data.start instanceof Timestamp) {
+                eventDate = data.start;
+              } else if (data.startTijd && data.startTijd instanceof Timestamp) {
+                eventDate = data.startTijd;
+              } else if (data.dateTime && data.dateTime instanceof Timestamp) {
+                eventDate = data.dateTime;
+              }
+              
+              // Als we geen geldige datum hebben kunnen vinden, of als het event in het verleden is, sla over
+              if (!eventDate || eventDate.seconds < now.seconds) {
+                console.log(`Event ${doc.id} is in het verleden of heeft geen geldige datum, overslaan...`);
+                return;
+              }
+              
+              console.log(`Event gevonden voor deze recruiter (organisator: ${eventRecruiterIdStr === currentRecruiterId}, deelnemer: ${isAttendee}): ${doc.id}`, data);
+              meetingsFound = true;
+              
+              fetchedMeetings.push({
+                id: doc.id,
+                title: data.title || data.naam || data.eventType || 'Ongetitelde afspraak',
+                candidateName: data.candidateName || data.kandidaatNaam || data.metWie || data.jobSeekerEmail || 'Onbekende kandidaat',
+                dateTime: eventDate,
+                endDateTime: data.end || data.eindTijd || new Timestamp(eventDate.seconds + 3600, 0),
+                locationType: data.locationType || data.locatieType || data.locationtype || 'online',
+                location: data.location || data.locatie || data.locationDetails || '',
+                meetingLink: data.meetingLink || data.link || '',
+                status: data.status || 'gepland'
+              });
+            });
+            
+            // Sorteer op datum (oplopend)
+            fetchedMeetings.sort((a, b) => a.dateTime.seconds - b.dateTime.seconds);
+            
+            // Beperk tot 5 eerstvolgende afspraken
+            if (fetchedMeetings.length > 5) {
+              console.log(`${fetchedMeetings.length} afspraken gevonden, beperken tot 5 eerstvolgende`);
+              fetchedMeetings.splice(5);
+            }
+          }
+        } catch (err) {
+          console.error('Fout bij ophalen uit events collectie:', err);
+        }
+        
+        // Als er geen afspraken gevonden zijn in events, probeer dan meetings collectie
+        if (!meetingsFound) {
+          try {
+            console.log('Afspraken ophalen uit meetings collectie...');
+            const meetingsRef = collection(firestore, 'meetings');
+            
+            const q = query(
+              meetingsRef,
+              where('recruiterId', '==', recruiterId),
+              where('dateTime', '>=', now),
+              orderBy('dateTime', 'asc'),
+              limit(5) // Toon alleen de eerst komende 5 meetings
+            );
+            
+            const querySnapshot = await getDocs(q);
+            console.log(`Aantal gevonden afspraken in meetings collectie: ${querySnapshot.size}`);
+            
+            if (querySnapshot.size > 0) {
+              meetingsFound = true;
+              
+              querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                fetchedMeetings.push({
+                  id: doc.id,
+                  title: data.title || 'Ongetitelde afspraak',
+                  candidateName: data.candidateName || data.kandidaatNaam || 'Onbekende kandidaat',
+                  dateTime: data.dateTime,
+                  endDateTime: data.endDateTime || new Timestamp(data.dateTime.seconds + 3600, 0), // 1 uur later als fallback
+                  locationType: data.locationType || 'online',
+                  location: data.location,
+                  meetingLink: data.meetingLink,
+                  status: data.status || 'gepland'
+                });
+              });
+            }
+          } catch (err) {
+            console.error('Fout bij ophalen uit meetings collectie:', err);
+          }
+        }
+        
+        console.log('Opgehaalde afspraken:', fetchedMeetings);
+        
+        if (fetchedMeetings.length === 0) {
+          console.log('Geen afspraken gevonden. Controleer of er data in de events/meetings collecties staat.');
+        }
         
         setMeetings(fetchedMeetings);
       } catch (err) {
-        console.error('Fout bij ophalen van meetings:', err);
+        console.error('Fout bij ophalen van afspraken:', err);
         setMeetingsError('Er is een fout opgetreden bij het ophalen van je afspraken');
       } finally {
         setMeetingsLoading(false);
@@ -180,7 +346,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
     };
     
     fetchMeetings();
-  }, [currentUser]);
+  }, [currentUser, user.id, user.uid]);
   
   // Haal vacatures op die gemaakt zijn door deze recruiter
   useEffect(() => {
@@ -206,44 +372,85 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
       setError(null);
       
       try {
-        const jobsRef = collection(db, 'jobs');
-        
-        // Probeer eerst zonder orderBy - alleen op recruiterId filteren
-        const q = query(
-          jobsRef, 
-          where('recruiterId', '==', recruiterId),
-          // De volgende regel kan een index error veroorzaken
-          // orderBy('createdAt', 'desc')
-          // Gebruik liever een limiet dan een sortering als je problemen hebt
-          limit(50) // Haal maximaal 50 vacatures op
-        );
-        
-        console.log('Query uitgevoerd...');
-        const querySnapshot = await getDocs(q);
-        console.log(`Aantal gevonden vacatures: ${querySnapshot.size}`);
-        
+        // Probeer eerst uit de 'jobs' collectie
         const jobsData: Job[] = [];
+        let jobsFound = false;
         
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          console.log('Vacature data:', {
-            id: doc.id,
-            title: data.title,
-            recruiterId: data.recruiterId,
-            createdAt: data.createdAt
-          });
+        try {
+          const jobsRef = collection(firestore, 'jobs');
+          const q = query(
+            jobsRef, 
+            where('recruiterId', '==', recruiterId),
+            limit(50)
+          );
           
-          jobsData.push({
-            id: doc.id,
-            title: data.title || 'Onbekende functie',
-            company: data.company || 'Onbekend bedrijf',
-            location: data.location || 'Onbekende locatie',
-            createdAt: data.createdAt,
-            status: data.status || 'active'
-          });
-        });
+          console.log('Query uitvoeren op jobs collectie...');
+          const querySnapshot = await getDocs(q);
+          console.log(`Aantal gevonden vacatures in jobs collectie: ${querySnapshot.size}`);
+          
+          if (querySnapshot.size > 0) {
+            jobsFound = true;
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              console.log('Vacature data uit jobs:', {
+                id: doc.id,
+                title: data.title,
+                recruiterId: data.recruiterId,
+                createdAt: data.createdAt
+              });
+              
+              jobsData.push({
+                id: doc.id,
+                title: data.title || 'Onbekende functie',
+                company: data.company || 'Onbekend bedrijf',
+                location: data.location || 'Onbekende locatie',
+                createdAt: data.createdAt,
+                status: data.status || 'active'
+              });
+            });
+          }
+        } catch (err) {
+          console.error('Fout bij ophalen uit jobs collectie:', err);
+        }
         
-        // Sorteer hier lokaal na het ophalen, dit vermijdt Firebase index problemen
+        // Als er geen jobs gevonden zijn in de 'jobs' collectie, probeer dan 'vacatures' collectie
+        if (!jobsFound) {
+          try {
+            const vacaturesRef = collection(firestore, 'vacatures');
+            const q = query(
+              vacaturesRef, 
+              where('recruiterId', '==', recruiterId),
+              limit(50)
+            );
+            
+            console.log('Query uitvoeren op vacatures collectie...');
+            const querySnapshot = await getDocs(q);
+            console.log(`Aantal gevonden vacatures in vacatures collectie: ${querySnapshot.size}`);
+            
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              console.log('Vacature data uit vacatures:', {
+                id: doc.id,
+                title: data.title || data.functie,
+                recruiterId: data.recruiterId,
+                createdAt: data.createdAt || data.aanmaakDatum
+              });
+              
+              jobsData.push({
+                id: doc.id,
+                title: data.title || data.functie || 'Onbekende functie',
+                company: data.company || data.bedrijf || 'Onbekend bedrijf',
+                location: data.location || data.locatie || 'Onbekende locatie',
+                createdAt: data.createdAt || data.aanmaakDatum,
+                status: data.status || data.status || 'active'
+              });
+            });
+          } catch (err) {
+            console.error('Fout bij ophalen uit vacatures collectie:', err);
+          }
+        }
+        
+        // Sorteer hier lokaal na het ophalen
         jobsData.sort((a, b) => {
           // Als createdAt undefined is, zet het item onderaan
           if (!a.createdAt) return 1;
@@ -267,6 +474,11 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
         });
         
         console.log('Opgehaalde vacatures (gesorteerd):', jobsData);
+        
+        if (jobsData.length === 0) {
+          console.log('Geen vacatures gevonden. Controleer of er data in de jobs/vacatures collecties staat.');
+        }
+        
         setJobs(jobsData);
       } catch (err) {
         console.error('Fout bij ophalen van vacatures:', err);
@@ -282,34 +494,90 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   // Haal sollicitaties op
   useEffect(() => {
     const fetchApplications = async () => {
-      if (!user.id) return;
+      // Gebruik beide mogelijke ID velden, geef voorrang aan id
+      const recruiterId = user.id || user.uid;
+      
+      if (!recruiterId) {
+        console.log('Geen gebruikers-ID gevonden om sollicitaties mee op te halen');
+        return;
+      }
       
       try {
         setApplicationsLoading(true);
         setApplicationsError(null);
         
-        const q = query(
-          collection(db, 'sollicitaties'),
-          where('recruiterId', '==', user.id),
-          orderBy('applicationDate', 'desc')
-        );
-        
-        const querySnapshot = await getDocs(q);
         const applicationsData: Application[] = [];
+        let applicationsFound = false;
         
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          applicationsData.push({
-            id: doc.id,
-            jobId: data.jobId,
-            jobTitle: data.jobTitle || 'Onbekende functie',
-            userId: data.userId,
-            applicantName: data.applicantName || 'Onbekende kandidaat',
-            status: data.status || 'pending',
-            applicationDate: data.applicationDate,
-            location: data.location
-          });
-        });
+        // Probeer eerst uit 'sollicitaties' collectie
+        try {
+          console.log('Sollicitaties ophalen uit sollicitaties collectie...');
+          const q = query(
+            collection(firestore, 'sollicitaties'),
+            where('recruiterId', '==', recruiterId),
+            orderBy('applicationDate', 'desc')
+          );
+          
+          const querySnapshot = await getDocs(q);
+          console.log(`Aantal gevonden sollicitaties in sollicitaties collectie: ${querySnapshot.size}`);
+          
+          if (querySnapshot.size > 0) {
+            applicationsFound = true;
+            
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              applicationsData.push({
+                id: doc.id,
+                jobId: data.jobId || data.vacatureId,
+                jobTitle: data.jobTitle || data.vacatureTitle || 'Onbekende functie',
+                userId: data.userId || data.kandidaatId,
+                applicantName: data.applicantName || data.kandidaatNaam || 'Onbekende kandidaat',
+                status: data.status || 'pending',
+                applicationDate: data.applicationDate || data.sollicitatieDatum,
+                location: data.location || data.locatie
+              });
+            });
+          }
+        } catch (err) {
+          console.error('Fout bij ophalen uit sollicitaties collectie:', err);
+        }
+        
+        // Als er geen sollicitaties gevonden zijn, probeer eventuele alternatieve collecties
+        if (!applicationsFound) {
+          try {
+            console.log('Sollicitaties ophalen uit applications collectie...');
+            const q = query(
+              collection(firestore, 'applications'),
+              where('recruiterId', '==', recruiterId),
+              orderBy('createdAt', 'desc')
+            );
+            
+            const querySnapshot = await getDocs(q);
+            console.log(`Aantal gevonden sollicitaties in applications collectie: ${querySnapshot.size}`);
+            
+            querySnapshot.forEach((doc) => {
+              const data = doc.data();
+              applicationsData.push({
+                id: doc.id,
+                jobId: data.jobId || data.vacatureId,
+                jobTitle: data.jobTitle || data.vacatureTitle || 'Onbekende functie',
+                userId: data.userId || data.kandidaatId,
+                applicantName: data.applicantName || data.kandidaatNaam || 'Onbekende kandidaat',
+                status: data.status || 'pending',
+                applicationDate: data.createdAt || data.applicationDate || new Timestamp(0, 0),
+                location: data.location || data.locatie
+              });
+            });
+          } catch (err) {
+            console.error('Fout bij ophalen uit applications collectie:', err);
+          }
+        }
+        
+        console.log('Opgehaalde sollicitaties:', applicationsData);
+        
+        if (applicationsData.length === 0) {
+          console.log('Geen sollicitaties gevonden. Controleer of er data in de sollicitaties/applications collecties staat.');
+        }
         
         setApplications(applicationsData);
       } catch (error) {
@@ -321,7 +589,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
     };
     
     fetchApplications();
-  }, [user.id]);
+  }, [user.id, user.uid]);
   
   // Helper functie om datum te formatteren
   const formatApplicationDate = (timestamp: Timestamp): string => {
@@ -355,7 +623,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
   
   // Navigeer naar sollicitatie detail pagina
   const handleViewApplication = (applicationId: string) => {
-    navigate(`/applications/${applicationId}`);
+    navigate(`/application/${applicationId}`);
   };
   
   // Helper functie om meeting datum/tijd te formatteren
@@ -396,6 +664,176 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
     });
     
     return `${dayPrefix}, ${startTime} - ${endTime}`;
+  };
+
+  // Haal favoriete kandidaten op
+  useEffect(() => {
+    const fetchFavoriteCandidates = async () => {
+      // Gebruik beide mogelijke ID velden
+      const recruiterId = user.id || user.uid;
+      
+      if (!recruiterId) {
+        console.log('Geen gebruikers-ID gevonden om favorieten mee op te halen');
+        return;
+      }
+      
+      try {
+        setFavoritesLoading(true);
+        setFavoritesError(null);
+        
+        const favoritesData: FavoriteCandidate[] = [];
+        
+        // Probeer uit de 'favorites' collectie
+        try {
+          console.log('Favoriete kandidaten ophalen met userId filter...');
+          const favoritesRef = collection(firestore, 'favorites');
+          
+          const q = query(
+            favoritesRef,
+            where('userId', '==', recruiterId),
+            limit(10)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          console.log(`Aantal gevonden favorieten: ${querySnapshot.size}`);
+          
+          // Voor elke favoriet, haal extra kandidaat informatie op indien nodig
+          for (const docSnap of querySnapshot.docs) {
+            const data = docSnap.data();
+            const candidateId = data.candidateId || data.candidate_id || (data.userId && data.userId !== recruiterId ? data.userId : null);
+            
+            // Overslaan als er geen geldig kandidaat-ID is
+            if (!candidateId) {
+              console.log('Favoriet overgeslagen: geen geldig kandidaat-ID gevonden', data);
+              continue;
+            }
+            
+            let candidateName = data.candidateName || 'Onbekende kandidaat';
+            let jobTitle = data.jobTitle || 'Functie onbekend';
+            let experience = data.experience || '';
+            let profilePhotoUrl = data.profilePhotoUrl || '';
+            let userType = '';
+            
+            // Haal kandidaat-informatie op
+            try {
+              const userRef = doc(firestore, 'users', candidateId);
+              const userSnap = await getDoc(userRef);
+              
+              if (userSnap.exists()) {
+                const userData = userSnap.data();
+                
+                // Controleer of dit een werkzoekende is, geen recruiter
+                userType = userData.userType || userData.role || '';
+                const isRecruiter = 
+                  userType.toLowerCase() === 'recruiter' || 
+                  userType.toLowerCase() === 'recruitment' || 
+                  userType.toLowerCase() === 'employer';
+                
+                if (isRecruiter) {
+                  console.log(`Favoriet overgeslagen: ${candidateId} is een recruiter, geen kandidaat`);
+                  continue;
+                }
+                
+                candidateName = userData.displayName || userData.name || 'Onbekende kandidaat';
+                
+                // Probeer ook andere gegevens te krijgen als beschikbaar
+                jobTitle = userData.jobTitle || userData.functie || userData.position || jobTitle;
+                profilePhotoUrl = userData.profilePhotoUrl || userData.photoURL || profilePhotoUrl;
+                
+                if (userData.profile) {
+                  jobTitle = userData.profile.jobTitle || userData.profile.functie || userData.profile.position || jobTitle;
+                  experience = userData.profile.experience || userData.profile.ervaring || experience;
+                }
+              } else {
+                console.log(`Favoriet gebruiker ${candidateId} bestaat niet meer`);
+                continue;
+              }
+            } catch (err) {
+              console.error('Fout bij ophalen kandidaat gegevens:', err);
+              continue;
+            }
+            
+            favoritesData.push({
+              id: docSnap.id,
+              candidateId,
+              candidateName,
+              jobTitle,
+              experience,
+              profilePhotoUrl,
+              userType
+            });
+          }
+        } catch (err: any) {
+          console.error('Fout bij ophalen uit favorites collectie:', err);
+          // Zet de foutmelding specifiek voor de gebruiker
+          if (err && err.code === 'permission-denied') {
+            setFavoritesError('Je hebt geen rechten om favorieten op te halen. Controleer de Firestore regels.');
+          } else {
+            setFavoritesError('Er is een fout opgetreden bij het ophalen van favoriete kandidaten.');
+          }
+        }
+        
+        console.log('Opgehaalde favoriete kandidaten:', favoritesData);
+        setFavoriteCandidates(favoritesData);
+      } catch (err: any) {
+        console.error('Algemene fout bij ophalen van favoriete kandidaten:', err);
+        setFavoritesError('Er is een algemene fout opgetreden.');
+      } finally {
+        setFavoritesLoading(false);
+      }
+    };
+    
+    fetchFavoriteCandidates();
+  }, [user.id, user.uid, firestore]);
+
+  // Functie om naar een kandidaat te navigeren
+  const handleViewCandidate = (candidateId: string) => {
+    navigate(`/candidate/${candidateId}`);
+  };
+  
+  // Functie om een bericht naar een kandidaat te sturen
+  const handleMessageCandidate = (e: React.MouseEvent, candidateId: string) => {
+    e.stopPropagation(); // Voorkom navigatie naar de kandidaat
+    navigate(`/messages/new?recipientId=${candidateId}`);
+  };
+  
+  // Functie om een kandidaat uit de favorieten te verwijderen
+  const handleRemoveFavorite = async (e: React.MouseEvent, favoriteId: string) => {
+    e.stopPropagation(); // Voorkom navigatie naar de kandidaat
+    
+    try {
+      // Daadwerkelijke delete operatie uit Firebase uitvoeren
+      console.log('Favoriet verwijderen met ID:', favoriteId);
+      
+      // Voer de verwijdering uit in Firebase
+      await deleteDoc(doc(firestore, 'favorites', favoriteId));
+      
+      // Update de UI (optimistic update)
+      setFavoriteCandidates(prev => prev.filter(fav => fav.id !== favoriteId));
+      
+      console.log('Favoriet succesvol verwijderd');
+    } catch (err) {
+      console.error('Fout bij verwijderen van favoriet:', err);
+      // Toon foutmelding aan de gebruiker
+      console.log("De favoriet kon niet worden verwijderd. Probeer het later opnieuw.");
+    }
+  };
+
+  // Bereken statistieken
+  const getActiveJobsCount = (): number => {
+    return jobs.filter(job => job.status === 'active').length || jobs.length;
+  };
+  
+  const getInterviewsCount = (): number => {
+    return applications.filter(app => app.status === 'interview').length;
+  };
+  
+  const getScheduledMeetingsCount = (): number => {
+    return meetings.length;
+  };
+  
+  const getReceivedApplicationsCount = (): number => {
+    return applications.length;
   };
 
   return (
@@ -596,23 +1034,23 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-blue-700">{jobs.length}</p>
+                  <p className="text-2xl font-bold text-blue-700">{getActiveJobsCount()}</p>
                   <p className="text-sm text-blue-800">Actieve vacatures</p>
                 </div>
                 
                 <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-green-700">{applications.length}</p>
+                  <p className="text-2xl font-bold text-green-700">{getReceivedApplicationsCount()}</p>
                   <p className="text-sm text-green-800">Sollicitaties ontvangen</p>
                 </div>
                 
                 <div className="bg-purple-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-purple-700">0</p>
+                  <p className="text-2xl font-bold text-purple-700">{getInterviewsCount()}</p>
                   <p className="text-sm text-purple-800">Interviews ingepland</p>
                 </div>
                 
                 <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-yellow-700">0</p>
-                  <p className="text-sm text-yellow-800">Kandidaten benaderd</p>
+                  <p className="text-2xl font-bold text-yellow-700">{getScheduledMeetingsCount()}</p>
+                  <p className="text-sm text-yellow-800">Geplande afspraken</p>
                 </div>
               </div>
             </div>
@@ -626,48 +1064,86 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
                 </a>
               </div>
               
-              <div className="space-y-4">
-                <p className="text-gray-500 text-sm italic">Je hebt nog geen favoriete kandidaten toegevoegd.</p>
-                
-                <div className="hidden">
-                  {/* Dit blok wordt zichtbaar wanneer er favoriete kandidaten zijn */}
-                  <div className="border rounded-md p-3 flex items-center hover:bg-gray-50 transition-colors">
-                    <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold mr-3">
-                      JD
-                    </div>
-                    <div>
-                      <h4 className="font-medium">Jan de Vries</h4>
-                      <p className="text-sm text-gray-600">Frontend Developer • 4 jaar ervaring</p>
-                    </div>
-                    <div className="ml-auto flex space-x-2">
-                      <button className="p-1 text-gray-400 hover:text-primary-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                        </svg>
-                      </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+              {favoritesLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-500 text-sm">Favorieten laden...</p>
                 </div>
-                
-                <a 
-                  href="/candidates" 
-                  className="block text-primary-600 hover:text-primary-800 font-medium"
-                >
-                  Zoek kandidaten om toe te voegen
-                </a>
-              </div>
+              ) : favoritesError ? (
+                <div className="text-red-500 text-sm py-2">{favoritesError}</div>
+              ) : favoriteCandidates.length > 0 ? (
+                <div className="space-y-4">
+                  {favoriteCandidates.map(candidate => (
+                    <div 
+                      key={candidate.id} 
+                      className="border rounded-md p-3 flex items-center hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => handleViewCandidate(candidate.candidateId)}
+                    >
+                      <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-bold mr-3 overflow-hidden">
+                        {candidate.profilePhotoUrl ? (
+                          <img 
+                            src={candidate.profilePhotoUrl} 
+                            alt={candidate.candidateName} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          candidate.candidateName.substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-medium">{candidate.candidateName}</h4>
+                        <p className="text-sm text-gray-600">
+                          {candidate.jobTitle}
+                          {candidate.experience && ` • ${candidate.experience}`}
+                        </p>
+                      </div>
+                      <div className="ml-auto flex space-x-2">
+                        <button 
+                          className="p-1 text-gray-400 hover:text-primary-600"
+                          onClick={(e) => handleMessageCandidate(e, candidate.candidateId)}
+                          aria-label="Stuur bericht"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                          </svg>
+                        </button>
+                        <button 
+                          className="p-1 text-red-400 hover:text-red-600"
+                          onClick={(e) => handleRemoveFavorite(e, candidate.id)}
+                          aria-label="Verwijder favoriet"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="#ffcc04" stroke="#ffcc04">
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth="2" 
+                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-gray-500 text-sm italic">Je hebt nog geen favoriete kandidaten toegevoegd.</p>
+                  
+                  <a 
+                    href="/candidates" 
+                    className="block text-primary-600 hover:text-primary-800 font-medium"
+                  >
+                    Zoek kandidaten om toe te voegen
+                  </a>
+                </div>
+              )}
             </div>
             
             {/* Agenda */}
             <div className="bg-white border rounded-lg shadow-sm p-5">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-lg">Agenda</h3>
+                <h3 className="font-semibold text-lg">Mijn afspraken</h3>
                 <button 
                   onClick={handleAddAppointment}
                   className="px-3 py-1 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-md"
@@ -680,7 +1156,7 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
                 {meetingsLoading ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600 mx-auto"></div>
-                    <p className="mt-2 text-gray-500 text-sm">Agenda laden...</p>
+                    <p className="mt-2 text-gray-500 text-sm">Afspraken laden...</p>
                   </div>
                 ) : meetingsError ? (
                   <div className="text-red-500 text-sm py-2">{meetingsError}</div>
@@ -711,10 +1187,10 @@ const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({ user }) => {
                 
                 <div className="flex justify-center mt-4">
                   <Link 
-                    to="/agenda" 
+                    to="/meetings" 
                     className="inline-block text-primary-600 hover:text-primary-800 font-medium"
                   >
-                    Beheer je agenda
+                    Beheer je afspraken
                   </Link>
                 </div>
               </div>

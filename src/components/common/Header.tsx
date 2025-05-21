@@ -1,21 +1,14 @@
 import React, { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMessages } from '../../contexts/MessageContext';
 import { useLayout } from '../../contexts/LayoutContext';
 
 const Header: React.FC = () => {
-  // Check of we in een Layout zitten via de context
+  // Alle hooks moeten bovenaan de component worden geplaatst, vóór eventuele condities
   const { isInsideLayout } = useLayout();
-  
-  // Controleer de locatie van waar deze Header wordt opgeroepen
   const location = useLocation();
-  
-  // We tonen de header NIET op de landingspagina omdat deze zijn eigen header heeft
-  if (location.pathname === '/') {
-    return null;
-  }
-  
+  const navigate = useNavigate();
   const { currentUser, logout, userProfile } = useAuth();
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
   
@@ -42,6 +35,33 @@ const Header: React.FC = () => {
     console.log('isRecruiter:', isRecruiter);
     console.log('isJobSeeker:', isJobSeeker);
   }, [userProfile, isRecruiter, isJobSeeker]);
+
+  // Navigatiefuncties voor betere controle
+  const navigateTo = (path: string) => {
+    console.log(`Navigeren naar: ${path}`);
+    
+    // Voeg extra debug informatie toe voor navigatie naar dashboard
+    if (path === '/dashboard') {
+      console.log('Dashboard navigatie geactiveerd');
+      console.log('Huidige gebruikers status:', { currentUser, userProfile });
+    }
+    
+    navigate(path);
+  };
+
+  // Functie specifiek voor het navigeren naar het dashboard
+  const goToDashboard = () => {
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+    navigate('/dashboard');
+  };
+
+  // We tonen de header NIET op de landingspagina omdat deze zijn eigen header heeft
+  if (location.pathname === '/') {
+    return null;
+  }
 
   // Vervanging voor de inlog knop om te zorgen dat deze werkt
   const renderAuthButtons = () => {
@@ -96,13 +116,20 @@ const Header: React.FC = () => {
             </svg>
           </Link>
           <Link 
-            to="/dashboard/profile" 
+            to="/profile" 
             className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}
+            onClick={(e) => {
+              e.preventDefault(); // Voorkom standaard navigatie
+              navigate('/profile', { replace: true });
+            }}
           >
             Profiel
           </Link>
           <button 
-            onClick={logout} 
+            onClick={async () => {
+              await logout();
+              navigate('/login');
+            }} 
             className={`px-4 py-2 rounded-md text-sm font-medium ${
               isHomePage ? 'text-white bg-primary-600 hover:bg-primary-700' : 'text-white bg-primary-600 hover:bg-primary-700'
             }`}
@@ -140,38 +167,41 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           {/* Logo en merknaam */}
-          <Link to="/" className="flex items-center">
+          <div onClick={() => navigateTo('/')} className="flex items-center cursor-pointer">
             <span className={`text-2xl font-bold ${isHomePage ? 'text-white' : 'text-primary-600'}`}>PitchPro</span>
-          </Link>
+          </div>
           
           {/* Navigatiemenu gebaseerd op gebruikersrol */}
           <nav className="flex space-x-6">
-            <Link to="/" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+            <div onClick={() => navigateTo('/')} className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80 cursor-pointer`}>
               Home
-            </Link>
-            <Link to="/about" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+            </div>
+            <div onClick={() => navigateTo('/about')} className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80 cursor-pointer`}>
               Over ons
-            </Link>
+            </div>
             
-            {/* Vacatures alleen tonen voor werkzoekenden en niet-ingelogde gebruikers */}
-            {(!isRecruiter) && (
-              <Link to="/jobs" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+            {/* Vacatures alleen tonen als het GEEN recruiter is */}
+            {!isRecruiter && (
+              <div onClick={() => navigateTo('/jobs')} className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80 cursor-pointer`}>
                 Vacatures
-              </Link>
+              </div>
             )}
             
             {/* Toon 'Kandidaten' alleen voor recruiters */}
             {isRecruiter && (
-              <Link to="/candidates" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+              <div onClick={() => navigateTo('/candidates')} className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80 cursor-pointer`}>
                 Kandidaten
-              </Link>
+              </div>
             )}
             
             {/* Dashboard voor ingelogde gebruikers */}
             {currentUser && (
-              <Link to="/dashboard" className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80`}>
+              <div
+                onClick={goToDashboard}
+                className={`${isHomePage ? 'text-white' : 'text-gray-700'} hover:opacity-80 cursor-pointer`}
+              >
                 Dashboard
-              </Link>
+              </div>
             )}
           </nav>
           

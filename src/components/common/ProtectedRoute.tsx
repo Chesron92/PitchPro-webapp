@@ -40,9 +40,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
   
   // Als er een specifieke rol vereist is, controleer met onze helperfuncties
   if (requiredRole) {
-    // Gebruik de helperfuncties om type-veilig te checken
+    // Gebruik de helperfuncties om type-veilig te checken, maar accepteer zowel Nederlandse als Engelse termen
     const hasCorrectRole = 
-      (requiredRole === 'werkzoekende' && isJobSeeker(userProfile)) || 
+      ((requiredRole === 'werkzoekende' || requiredRole === 'jobseeker') && isJobSeeker(userProfile)) || 
       (requiredRole === 'recruiter' && isRecruiter(userProfile));
     
     if (!hasCorrectRole) {

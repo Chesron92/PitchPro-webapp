@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functies ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Functie om gebruikersdata op te halen (veilig)
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    // Controleert of een gebruiker de recruiter rol heeft
+    function isRecruiter(userId) {
+      // Haal data alleen op als gebruiker bestaat
+      let userData = getUserData(userId);
+      // Gebruik 'get' met default value om null-errors te voorkomen
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+             (userData.get('role', '') == 'recruiter' || userData.get('userType', '') == 'recruiter');
+    }
+
+     // Controleert of een gebruiker de werkzoekende rol heeft
+    function isJobseeker(userId) {
+      // Haal data alleen op als gebruiker bestaat
+      let userData = getUserData(userId);
+       // Gebruik 'get' met default value om null-errors te voorkomen
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+             (userData.get('role', '') == 'werkzoekende' || userData.get('role', '') == 'Werkzoekende' ||
+              userData.get('userType', '') == 'jobseeker' || userData.get('userType', '') == 'Werkzoekende');
+    }
+
+    // --- Collectie Regels ---
+
+    // Gebruikers collectie
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Sta lijst toe voor ingelogde gebruikers (voor zoeken/tonen van profielen)
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+
+      // Subcollecties
+      match /sollicitaties/{sollicitatieId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /cv/{cvId} {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // Vacatures & Jobs collecties
+    match /vacatures/{vacatureId} {
+      allow read: if true;
+      allow create: if isRecruiter(request.auth.uid);
+      allow update, delete: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid;
+
+      match /sollicitaties/{sollicitatieId} {
+        allow read: if isRecruiter(request.auth.uid) && get(/databases/$(database)/documents/vacatures/$(vacatureId)).data.recruiterId == request.auth.uid;
+        allow create: if isJobseeker(request.auth.uid);
+      }
+    }
+     match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if isRecruiter(request.auth.uid);
+      allow update, delete: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid;
+       match /sollicitaties/{sollicitatieId} {
+         allow read: if isRecruiter(request.auth.uid) && get(/databases/$(database)/documents/jobs/$(jobId)).data.recruiterId == request.auth.uid;
+        allow create: if isJobseeker(request.auth.uid);
+       }
+     }
+
+    // Hoofdsollicitaties collectie
+    match /sollicitaties/{sollicitatieId} {
+      allow create: if isJobseeker(request.auth.uid) && request.resource.data.userId == request.auth.uid; // Aangepast naar userId voor consistentie
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || (isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid)); // Aangepast naar userId & recruiterId
+      allow list: if isSignedIn(); // Wees voorzichtig met brede list regels, overweeg te filteren
+      allow update: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid; // Aangepast naar recruiterId
+      allow delete: if isOwner(resource.data.userId); // Aangepast naar userId
+    }
+
+    // Favorites collectie
+    match /favorites/{favoriteId} {
+      // Toestaan dat een ingelogde gebruiker een lijst opvraagt van favorieten.
+      // De client-side query MOET filteren op userId (bijv. where('userId', '==', request.auth.uid)).
+      // Firestore valideert dan elk document in de resultaatset tegen de 'get' regel.
+      allow list: if isSignedIn();
+
+      // Toestaan dat een ingelogde gebruiker een specifiek favoriet-document leest
+      // als hun UID overeenkomt met het 'userId' (van de recruiter) in dat document.
+      allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+
+      // Toestaan dat een ingelogde gebruiker een nieuw favoriet-document aanmaakt
+      // waarbij het 'userId' (van de recruiter) in het nieuwe document overeenkomt met hun eigen UID.
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+
+      // Toestaan dat een ingelogde gebruiker een favoriet-document verwijdert
+      // als hun UID overeenkomt met het 'userId' (van de recruiter) in dat document.
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // CHAT REGELS
+    match /chats/{chatId} {
+      function isParticipant(uid) {
+        return exists(/databases/$(database)/documents/chats/$(chatId)) && uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+      function isParticipantOfRequestChat(uid) {
+         return request.resource != null && request.resource.data != null && uid in request.resource.data.participants;
+       }
+
+      allow get: if isParticipant(request.auth.uid);
+      allow list: if isSignedIn(); // Overweeg te filteren op participants array in de query en regel
+      allow create: if isSignedIn() && isParticipantOfRequestChat(request.auth.uid);
+      allow update: if isParticipant(request.auth.uid);
+      allow delete: if isParticipant(request.auth.uid); // Wees voorzichtig met delete, misschien alleen door 'owner' of 'admin'
+
+      match /messages/{messageId} {
+        function isParticipantOfParentChat() {
+          let parentChatPath = /databases/$(database)/documents/chats/$(chatId);
+          return exists(parentChatPath) && request.auth.uid in get(parentChatPath).data.participants;
+        }
+        allow read: if isParticipantOfParentChat();
+        allow list: if isParticipantOfParentChat(); // Toegevoegd voor het ophalen van berichtenlijsten
+        allow create: if isParticipantOfParentChat() && request.resource.data.senderID == request.auth.uid;
+        allow update, delete: if false; // Berichten mogen meestal niet worden bijgewerkt of verwijderd
+      }
+    }
+
+    // Events collectie
+    match /events/{eventId} {
+      // Een recruiter kan een event aanmaken als de recruiterID in het document overeenkomt met zijn/haar UID
+      allow create: if isRecruiter(request.auth.uid) && request.resource.data.recruiterId == request.auth.uid; // Aangepast naar recruiterId
+
+      // Een gebruiker mag een event lezen als hij/zij de recruiter is OF de genodigde werkzoekende (jobSeekerID).
+      // Of als het event publiek is (bv. geen recruiterId of jobSeekerId gespecificeerd).
+      allow get: if isSignedIn() &&
+                    (resource.data.recruiterId == request.auth.uid ||
+                     (resource.data.jobSeekerID != null && resource.data.jobSeekerID == request.auth.uid) ||
+                     (resource.data.attendees is list && request.auth.uid in resource.data.attendees) // Nieuw: check attendees array
+                    );
+
+      // Ingelogde gebruikers mogen lijsten van events opvragen.
+      // Overweeg specifieke query-gebaseerde regels voor productie voor betere beveiliging en prestaties.
+      allow list: if isSignedIn();
+
+      // Een recruiter mag het event updaten als hij/zij de eigenaar is.
+      // Een werkzoekende mag het event updaten (bijv. status veranderen naar 'accepted'/'declined') als hij/zij de genodigde is
+      // en alleen specifieke velden (zoals 'status' of 'attendees') worden gewijzigd.
+      allow update: if isSignedIn() &&
+                       ( (isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid) ||
+                         (isJobseeker(request.auth.uid) && resource.data.jobSeekerID == request.auth.uid && request.resource.data.keys().hasOnly(['status'])) ||
+                         (resource.data.attendees is list && request.auth.uid in resource.data.attendees && request.resource.data.keys().hasOnly(['status', 'attendees'])) // Nieuw: attendee mag status of zichzelf uit attendees verwijderen/toevoegen
+                       );
+
+      // Alleen de recruiter die het event heeft aangemaakt, mag het verwijderen.
+      allow delete: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid; // Aangepast naar recruiterId
+    }
+
+    // Appointments / Meetings
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.recruiterId || request.auth.uid == resource.data.jobSeekerId);
+      allow create: if isSignedIn() && (request.auth.uid == request.resource.data.recruiterId || request.auth.uid == request.resource.data.jobSeekerId);
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.recruiterId || request.auth.uid == resource.data.jobSeekerId);
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.recruiterId || request.auth.uid == resource.data.jobSeekerId);
+    }
+    match /meetings/{meetingId} {
+      allow read: if isSignedIn(); // Overweeg specifieker te maken, bijv. op basis van deelnemers
+      allow create: if isRecruiter(request.auth.uid) && request.resource.data.recruiterId == request.auth.uid;
+      allow update: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid;
+      allow delete: if isRecruiter(request.auth.uid) && resource.data.recruiterId == request.auth.uid;
+    }
+  }
+} 

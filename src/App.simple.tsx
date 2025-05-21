@@ -5,4 +5,4 @@ export default function AppSimple() {
       <p className="p-4">Dit is een vereenvoudigde versie van de applicatie.</p>
     </div>
   );
-} 
+}

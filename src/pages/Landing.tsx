@@ -1,12 +1,34 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Footer from '../components/common/Footer';
 import { LayoutProvider } from '../contexts/LayoutContext';
 import Header from '../components/common/Header';
 
 const Landing: React.FC = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, userProfile } = useAuth();
+  const navigate = useNavigate();
+  
+  // Controleer of de gebruiker een recruiter is
+  const isRecruiter = userProfile?.role === 'recruiter' || userProfile?.userType === 'recruiter';
+  
+  // Navigatiefunctie voor betere controle
+  const navigateTo = (path: string) => {
+    console.log(`Navigeren naar: ${path}`);
+    
+    // Voeg extra debug informatie toe voor dashboard navigatie
+    if (path === '/dashboard') {
+      console.log('Dashboard navigatie geactiveerd vanaf Landing');
+    }
+    
+    navigate(path);
+  };
+
+  // Specifieke functie voor dashboard navigatie
+  const goToDashboard = () => {
+    console.log('Expliciete dashboard navigatie aangeroepen vanaf Landing');
+    navigate('/dashboard');
+  };
 
   return (
     <LayoutProvider isInsideLayout={false}>
@@ -17,25 +39,34 @@ const Landing: React.FC = () => {
             <div className="container mx-auto px-4 py-4">
               <div className="flex justify-between items-center">
                 {/* Logo en merknaam */}
-                <Link to="/" className="flex items-center">
+                <div onClick={() => navigateTo('/')} className="flex items-center cursor-pointer">
                   <span className="text-2xl font-bold text-white">PitchPro</span>
-                </Link>
+                </div>
                 
                 {/* Navigatiemenu */}
                 <nav className="flex space-x-6">
-                  <Link to="/" className="text-white hover:opacity-80">
+                  <div onClick={() => navigateTo('/')} className="text-white hover:opacity-80 cursor-pointer">
                     Home
-                  </Link>
-                  <Link to="/about" className="text-white hover:opacity-80">
+                  </div>
+                  <div onClick={() => navigateTo('/about')} className="text-white hover:opacity-80 cursor-pointer">
                     Over ons
-                  </Link>
-                  <Link to="/jobs" className="text-white hover:opacity-80">
-                    Vacatures
-                  </Link>
+                  </div>
+                  {/* Vacatures alleen tonen als het GEEN recruiter is */}
+                  {!isRecruiter && (
+                    <div onClick={() => navigateTo('/jobs')} className="text-white hover:opacity-80 cursor-pointer">
+                      Vacatures
+                    </div>
+                  )}
+                  {/* Toon 'Kandidaten' alleen voor recruiters */}
+                  {isRecruiter && (
+                    <div onClick={() => navigateTo('/candidates')} className="text-white hover:opacity-80 cursor-pointer">
+                      Kandidaten
+                    </div>
+                  )}
                   {currentUser && (
-                    <Link to="/dashboard" className="text-white hover:opacity-80">
+                    <div onClick={goToDashboard} className="text-white hover:opacity-80 cursor-pointer">
                       Dashboard
-                    </Link>
+                    </div>
                   )}
                 </nav>
                 
@@ -50,18 +81,18 @@ const Landing: React.FC = () => {
                     </button>
                   ) : (
                     <>
-                      <Link
-                        to="/login"
-                        className="px-4 py-2 rounded-md text-sm font-medium text-white"
+                      <div
+                        onClick={() => navigateTo('/login')}
+                        className="px-4 py-2 rounded-md text-sm font-medium text-white cursor-pointer"
                       >
                         Inloggen
-                      </Link>
-                      <Link
-                        to="/register"
-                        className="px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
+                      </div>
+                      <div
+                        onClick={() => navigateTo('/register')}
+                        className="px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 cursor-pointer"
                       >
                         Registreren
-                      </Link>
+                      </div>
                     </>
                   )}
                 </div>
@@ -82,26 +113,26 @@ const Landing: React.FC = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {currentUser ? (
-                  <Link
-                    to="/dashboard"
-                    className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md"
+                  <div
+                    onClick={goToDashboard}
+                    className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md cursor-pointer"
                   >
                     Naar Dashboard
-                  </Link>
+                  </div>
                 ) : (
                   <>
-                    <Link
-                      to="/register"
-                      className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md"
+                    <div
+                      onClick={() => navigateTo('/register')}
+                      className="px-8 py-3 bg-white text-primary-700 font-medium rounded-md hover:bg-gray-100 transition-colors shadow-md cursor-pointer"
                     >
                       Registreren
-                    </Link>
-                    <Link
-                      to="/login"
-                      className="px-8 py-3 border border-white text-white font-medium rounded-md hover:bg-primary-700 transition-colors"
+                    </div>
+                    <div
+                      onClick={() => navigateTo('/login')}
+                      className="px-8 py-3 border border-white text-white font-medium rounded-md hover:bg-primary-700 transition-colors cursor-pointer"
                     >
                       Inloggen
-                    </Link>
+                    </div>
                   </>
                 )}
               </div>
@@ -232,26 +263,26 @@ const Landing: React.FC = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {currentUser ? (
-                <Link
-                  to="/dashboard"
-                  className="px-8 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors shadow-md"
+                <div
+                  onClick={goToDashboard}
+                  className="px-8 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors shadow-md cursor-pointer"
                 >
                   Naar Dashboard
-                </Link>
+                </div>
               ) : (
                 <>
-                  <Link
-                    to="/register"
-                    className="px-8 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors shadow-md"
+                  <div
+                    onClick={() => navigateTo('/register')}
+                    className="px-8 py-3 bg-primary-600 text-white font-medium rounded-md hover:bg-primary-700 transition-colors shadow-md cursor-pointer"
                   >
                     Registreren
-                  </Link>
-                  <Link
-                    to="/login"
-                    className="px-8 py-3 border border-primary-600 text-primary-600 font-medium rounded-md hover:bg-primary-50 transition-colors"
+                  </div>
+                  <div
+                    onClick={() => navigateTo('/login')}
+                    className="px-8 py-3 border border-primary-600 text-primary-600 font-medium rounded-md hover:bg-primary-50 transition-colors cursor-pointer"
                   >
                     Inloggen
-                  </Link>
+                  </div>
                 </>
               )}
             </div>

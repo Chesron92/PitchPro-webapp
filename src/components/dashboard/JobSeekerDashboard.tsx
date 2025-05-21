@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BaseUser } from '../../types/user';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -29,6 +29,16 @@ interface Application {
   applicationDate: Timestamp;
 }
 
+// Voeg interface toe voor favoriete vacature
+interface FavoriteJob {
+  id: string;
+  jobId: string;
+  title: string;
+  company: string;
+  location?: string;
+  type?: string;
+}
+
 function JobSeekerDashboard({ user }: { user: BaseUser }) {
   const navigate = useNavigate();
   // Remove the unused state variable
@@ -46,6 +56,10 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
   
   // State voor sollicitaties
   const [applications, setApplications] = useState<Application[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteJob[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [profileViews, setProfileViews] = useState<number>(0);
+  const [loadingProfileViews, setLoadingProfileViews] = useState(true);
 
   const handleRemoveFavorite = async (jobId: string) => {
     try {
@@ -61,7 +75,7 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
   
   // Navigeer naar sollicitatie detail pagina
   const viewApplicationDetail = (applicationId: string) => {
-    navigate(`/applications/${applicationId}`);
+    navigate(`/application/${applicationId}`);
   };
 
   // Bereken hoeveel % van het profiel is ingevuld
@@ -82,8 +96,10 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
     totalFields += addressFields.length;
     
     addressFields.forEach(field => {
-      if (user[field] || (user.address && typeof user.address === 'object' && 
-         (user.address as Record<string, any>)[field])) {
+      if (
+        user[field] ||
+        (user.address && typeof user.address === 'object' && (user.address as Record<string, any>)[field])
+      ) {
         filledFields++;
       }
     });
@@ -186,6 +202,117 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
     }
   };
 
+  // ------ NIEUW: Afspraken ophalen ------
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!user.id) return;
+
+      try {
+        setLoadingAppointments(true);
+        const q = query(
+          collection(db, 'events'),
+          where('jobSeekerID', '==', user.id),
+          orderBy('date', 'asc')
+        );
+
+        const snapshot = await getDocs(q);
+        const eventsData: CandidateCalendarEvent[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          eventsData.push({
+            id: docSnap.id,
+            title: data.title,
+            startDate: data.date,
+            endDate: data.date,
+            location: data.locationDetails,
+            description: data.eventType,
+            withRecruiter: data.recruiterEmail,
+            recruiterId: data.recruiterID,
+            candidateId: data.jobSeekerID,
+          });
+        });
+        setUpcomingAppointments(eventsData);
+      } catch (err) {
+        console.error('Fout bij ophalen events:', err);
+      } finally {
+        setLoadingAppointments(false);
+      }
+    };
+
+    fetchEvents();
+  }, [user.id]);
+
+  // ------ NIEUW: Favorieten ophalen ------
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      if (!user.id) return;
+
+      try {
+        setLoadingFavorites(true);
+        const q = query(
+          collection(db, 'favorites'),
+          where('userId', '==', user.id)
+        );
+        const snap = await getDocs(q);
+        const favData: FavoriteJob[] = [];
+        for (const favDoc of snap.docs) {
+          const fav = favDoc.data();
+          let title = fav.jobTitle || '';
+          let company = fav.company || '';
+
+          // Als title of company ontbreekt, fetch job document
+          if ((!title || !company) && fav.jobId) {
+            try {
+              const jobRef = doc(db, 'jobs', fav.jobId);
+              const jobSnap = await getDoc(jobRef);
+              if (jobSnap.exists()) {
+                const jobInfo = jobSnap.data();
+                title = title || jobInfo.title;
+                company = company || jobInfo.company;
+              }
+            } catch (e) {
+              console.warn('Kon job-details niet ophalen voor favorite', fav.jobId);
+            }
+          }
+
+          favData.push({
+            id: favDoc.id,
+            jobId: fav.jobId,
+            title,
+            company,
+            location: fav.location || '',
+            type: fav.type || '',
+          });
+        }
+        setFavorites(favData);
+      } catch (err) {
+        console.error('Fout bij ophalen favorites:', err);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    fetchFavorites();
+  }, [user.id]);
+
+  // fetch profile views
+  useEffect(()=>{
+    const fetchViews = async ()=>{
+      if(!user.id) return;
+      try{
+        setLoadingProfileViews(true);
+        const q = query(collection(db,'profileViews'), where('jobSeekerID','==',user.id));
+        const snap = await getDocs(q);
+        setProfileViews(snap.size);
+      }catch(err){
+        console.error('Fout bij ophalen profiel views:',err);
+      }finally{
+        setLoadingProfileViews(false);
+      }
+    };
+    fetchViews();
+  },[user.id]);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -262,64 +389,65 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
             </div>
           </div>
           
-          {/* Favoriete vacatures */}
-          <div className="bg-white border rounded-lg shadow-sm p-5">
-            <h3 className="font-semibold text-lg mb-4">Favoriete vacatures</h3>
-            
-            <div className="space-y-3">
-              {/* Implement the logic to fetch and display favorite jobs */}
-            </div>
-          </div>
-          
-          {/* Agenda - nu col-span-2 op alle schermformaten voor volledige breedte */}
+          {/* Agenda / Afspraken */}
           <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-lg">Mijn Agenda</h3>
-              {/* Geen knop voor werkzoekenden */}
+              <h3 className="font-semibold text-lg">Mijn Afspraken</h3>
             </div>
-            
-            <div className="space-y-3">
-              <p className="text-gray-500 text-sm italic">Je hebt geen geplande sollicitatiegesprekken of afspraken.</p>
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
-                <p className="text-sm text-blue-700">
-                  <span className="font-medium">Info:</span> Als werkzoekende kun je alleen afspraken ontvangen van recruiters. 
-                  Je kunt zelf geen afspraken plannen.
-                </p>
+            {loadingAppointments ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
               </div>
-              
-              <div className="hidden">
-                {/* Dit blok wordt zichtbaar wanneer er afspraken zijn */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="border-l-4 border-blue-500 pl-3 py-2">
-                    <div className="flex items-center">
-                      <div className="mr-3 text-blue-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium">Sollicitatiegesprek bij TechCorp</p>
-                        <p className="text-sm text-gray-600">Morgen, 10:00 - 11:00</p>
-                      </div>
-                    </div>
+            ) : upcomingAppointments.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingAppointments.map(ev => (
+                  <div key={ev.id} className="border-l-4 border-blue-500 pl-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={()=>navigate(`/event/${ev.id}`)}>
+                    <p className="font-medium">{ev.title}</p>
+                    <p className="text-sm text-gray-600">
+                      Tijd: {ev.startDate instanceof Timestamp ? format(ev.startDate.toDate(),'HH:mm') : ''}
+                    </p>
+                    <p className="text-sm text-gray-600">Locatie: {ev.location}</p>
                   </div>
-                  
-                  <div className="border-l-4 border-green-500 pl-3 py-2">
-                    <div className="flex items-center">
-                      <div className="mr-3 text-green-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium">Telefonische screening InnovateCo</p>
-                        <p className="text-sm text-gray-600">Woensdag, 14:30 - 15:00</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-gray-500 text-sm italic">Geen afspraken gepland.</p>
+            )}
+          </div>
 
+          {/* Favoriete vacatures */}
+          <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-lg">Favoriete vacatures</h3>
+              <a href="/jobs" className="text-primary-600 hover:text-primary-800 text-sm font-medium">Bekijk alle vacatures</a>
+            </div>
+            {loadingFavorites ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
+              </div>
+            ) : favorites.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-x-auto pb-2">
+                {favorites.map(fav => (
+                  <div key={fav.id} className="bg-primary-50 p-4 rounded shadow-sm min-w-[250px] hover:bg-primary-100 cursor-pointer" onClick={()=>goToJobDetail(fav.jobId)}>
+                    <p className="font-semibold">{fav.title}</p>
+                    <p className="text-sm text-gray-600">{fav.company}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm italic">Je hebt nog geen favoriete vacatures.</p>
+            )}
+          </div>
+
+          {/* Statistieken overzicht */}
+          <div className="bg-white border rounded-lg shadow-sm p-5 col-span-1 md:col-span-2">
+            <h3 className="font-semibold text-lg mb-4">Statistieken Overzicht</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatTile label="Verzonden Sollicitaties" value={applications.length} />
+              <StatTile label="In Behandeling" value={applications.filter(a=>a.status==='reviewing').length} />
+              <StatTile label="Uitgenodigd" value={applications.filter(a=>a.status==='interview').length} />
+              <StatTile label="Geplande Gesprekken" value={upcomingAppointments.length} />
+              <StatTile label="Profiel Bekeken" value={profileViews} />
             </div>
           </div>
         </div>
@@ -327,5 +455,12 @@ function JobSeekerDashboard({ user }: { user: BaseUser }) {
     </div>
   );
 }
+
+const StatTile: React.FC<{label:string; value:number}> = ({ label, value }) => (
+  <div className="flex flex-col items-center bg-primary-50 rounded-lg p-4 shadow-sm">
+    <span className="text-3xl font-bold text-primary-700">{value}</span>
+    <span className="text-sm text-gray-600 text-center mt-1">{label}</span>
+  </div>
+);
 
 export default JobSeekerDashboard; 

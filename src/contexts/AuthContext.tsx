@@ -63,23 +63,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const normalizeUserData = (userData: any, uid: string): BaseUser => {
     console.log('Normalizing user data for:', uid, userData);
     
-    // Valideer en normaliseer de rol
-    let role = userData.role || userData.userType || 'werkzoekende';
+    let rawRole = (userData.role || userData.userType || 'werkzoekende') as string;
+    rawRole = typeof rawRole === 'string' ? rawRole.toLowerCase() : 'werkzoekende';
+
+    // Converteer Engelse term naar Nederlandse equivalent
+    if (rawRole === 'jobseeker') rawRole = 'werkzoekende';
+
+    // Slechts twee hoofdrollen ondersteunen we momenteel
+    const role: UserRole = rawRole === 'recruiter' ? 'recruiter' : 'werkzoekende';
+
+    // userType eveneens normalized
+    let userType: UserRole = (userData.userType ? String(userData.userType).toLowerCase() : role) as UserRole;
+    if (userType === 'jobseeker') userType = 'werkzoekende';
+    if (userType !== 'recruiter') userType = 'werkzoekende';
     
-    // Zet Engelse waardes om naar Nederlandse waardes
-    if (role === 'jobseeker') {
-      role = 'werkzoekende';
-      console.warn('Converted English role "jobseeker" to Dutch "werkzoekende"');
-    }
-    
-    // Zorg ervoor dat userType ook consistent is
-    let userType = userData.userType || role;
-    if (userType === 'jobseeker') {
-      userType = 'werkzoekende';
-    }
-    
-    // Basis gebruikersgegevens
     const normalizedUser: BaseUser = {
+      // 1) Spread ALLE ruwe velden uit Firestore zodat niets verloren gaat
+      ...userData,
+      // 2) Overschrijf/verrijk met onze genormaliseerde basisvelden
       id: uid,
       email: userData.email || '',
       displayName: userData.displayName || userData.name || '',

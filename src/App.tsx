@@ -23,6 +23,8 @@ const Conversation = lazy(() => import('./pages/Conversation'));
 const ScheduleMeeting = lazy(() => import('./pages/ScheduleMeeting'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const ApplicationDetail = lazy(() => import('./pages/ApplicationDetail'));
+const EventDetail = lazy(() => import('./pages/EventDetail'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 // Dashboard routes (lazy loaded)
 const DashboardRoutes = lazy(() => import('./routes/dashboardRoutes'));
@@ -86,13 +88,19 @@ const Redirect: React.FC = () => {
   }
   
   // Na laden: redirect naar dashboard als ingelogd, of naar login als niet ingelogd
-  return currentUser ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+  if (currentUser) {
+    console.log("Redirect: Gebruiker ingelogd, doorverwijzen naar dashboard");
+    return <Navigate to="/dashboard" replace />;
+  } else {
+    console.log("Redirect: Geen gebruiker, doorverwijzen naar login");
+    return <Navigate to="/login" replace />;
+  }
 };
 
 // De AppContent component (intern, heeft toegang tot AuthContext)
 const AppContent: React.FC = () => {
   console.log("AppContent component rendering");
-  const { userProfile, currentUser } = useAuth();
+  // useAuth wordt hier niet rechtstreeks gebruikt; context wordt elders opgepakt.
   
   // Configureer globale error handler om kritieke fouten af te vangen
   useEffect(() => {
@@ -109,7 +117,7 @@ const AppContent: React.FC = () => {
   
   return (
     <Router basename="/">
-      {/* Voeg Header toe buiten de routes, zodat deze altijd zichtbaar is */}
+      {/* Header component altijd zichtbaar op alle pagina's */}
       <Header />
       
       <Suspense fallback={<Loading />}>
@@ -129,11 +137,9 @@ const AppContent: React.FC = () => {
             {/* About route */}
             <Route path="/about" element={<About />} />
             
-            {/* Vacatures routes - nu toegankelijk voor alleen werkzoekenden */}
-            <Route element={<ProtectedRoute requiredRole="werkzoekende" />}>
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/job/:jobId" element={<JobDetail />} />
-            </Route>
+            {/* Vacatures routes - toegankelijk voor alle bezoekers en werkzoekenden */}
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/job/:jobId" element={<JobDetail />} />
             
             {/* Beschermde applicatie routes */}
             <Route element={<ProtectedRoute />}>
@@ -162,6 +168,8 @@ const AppContent: React.FC = () => {
             <Route path="/application/:id" element={<ApplicationDetail />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/agenda" element={<Calendar />} />
+            <Route path="/event/:eventId" element={<EventDetail />} />
+            <Route path="/profile" element={<ProfilePage />} />
 
             {/* Fallback route voor debugging */}
             <Route path="/simple" element={<SimpleDashboard />} />
@@ -170,12 +178,10 @@ const AppContent: React.FC = () => {
           {/* Redirect route (voor directe doorverwijzing naar dashboard/login) */}
           <Route path="/redirect" element={<Redirect />} />
           
-          {/* Dashboard routes - nu lazy loaded met separate bundle */}
-          <Route path="/dashboard/*" element={
-            <Suspense fallback={<Loading />}>
-              <DashboardRoutes userProfile={userProfile} currentUser={currentUser} />
-            </Suspense>
-          } />
+          {/* Dashboard wrapper route */}
+          <Route path="/dashboard" element={<DashboardWrapper />} />
+          {/* catch legacy subroutes */}
+          <Route path="/dashboard/*" element={<DashboardWrapper />} />
           
           {/* Redirect onbekende routes naar home */}
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -204,5 +210,7 @@ const App: React.FC = () => {
     </AuthProvider>
   );
 };
+
+const DashboardWrapper = lazy(() => import('./pages/DashboardWrapper'));
 
 export default App; 

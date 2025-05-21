@@ -12,11 +12,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <LayoutProvider isInsideLayout={true}>
       <div className="layout min-h-screen flex flex-col">
         <main className="main-content flex-grow">
-          {children || <Outlet />}
-        </main>
+        {children || <Outlet />}
+      </main>
 
-        <Footer />
-      </div>
+      <Footer />
+    </div>
     </LayoutProvider>
   );
 };
